@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
 <title>자습실 출결·좌석</title>
 <style>
 :root{
@@ -12,6 +12,10 @@
   --tv-bg:#e9edf3; --tv-card:#f7f9fc; --tv-line:#cfd7e3; --tv-ink:#1c2430; --tv-mute:#8b95a5;
 }
 *{box-sizing:border-box;margin:0;padding:0}
+/* 확대·축소 방지 (더블탭·핀치), 버튼 연타 시 화면 확대 방지 */
+html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{-webkit-user-select:none;user-select:none}
+input{-webkit-user-select:text;user-select:text}
 body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
 header.top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 20px;background:#fff;border-bottom:1px solid var(--line)}
 header.top h1{font-size:17px;margin-right:auto}
@@ -604,6 +608,11 @@ async function boot(){
   setInterval(tick,1000);
   setInterval(refresh,REMOTE?20000:60000);   // 실시간 신호를 놓쳐도 주기적으로 맞춤
 }
+/* 확대·축소 막기: 핀치(터치 2개), iOS 제스처, Ctrl+휠, Ctrl +/-/0 */
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
+document.addEventListener('touchmove',e=>{if(e.touches&&e.touches.length>1)e.preventDefault();},{passive:false});
+document.addEventListener('wheel',e=>{if(e.ctrlKey)e.preventDefault();},{passive:false});
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','-','=','0'].includes(e.key))e.preventDefault();});
 boot();
 </script>
 </body>
