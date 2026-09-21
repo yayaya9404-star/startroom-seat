@@ -306,6 +306,9 @@ const LocalBackend=(()=>{
       if(cur.status!=='out')return{ok:false,code:'not_out',seat_no:cur.seat_no};
       const secs=Math.round((Date.now()-cur.out_at)/1000);cur.status='in';cur.out_at=null;
       addLog(d,{student_name:cur.student_name,seat_no:cur.seat_no,action:'back',out_seconds:secs});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no,secs};},
+    async adminRelease(pin,no){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();const cur=d.seats.find(s=>s.seat_no===no);
+      if(!cur||!cur.student_id)return{ok:false,code:'not_in'};addLog(d,{student_name:cur.student_name,seat_no:no,action:'admin_leave'});
+      Object.assign(cur,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});save(d);return{ok:true,code:'ok',seat_no:no};},
     async adminCheck(pin){return pin===DEMO_PIN;},
     async studentCount(){return load().students.length;},
     async logs(){return load().log.slice(0,30);},
@@ -337,6 +340,7 @@ const RemoteBackend=(()=>{
     checkout:id=>rpc('study_checkout',{p_student:id}),
     goOut:id=>rpc('study_go_out',{p_student:id}),
     comeBack:id=>rpc('study_come_back',{p_student:id}),
+    adminRelease:(pin,no)=>rpc('study_admin_release_seat',{p_pin:pin,p_seat_no:no}),
     adminCheck:pin=>rpc('study_admin_check',{p_pin:pin}),
     studentCount:pin=>rpc('study_admin_student_count',{p_pin:pin}),
     logs:pin=>rpc('study_admin_logs',{p_pin:pin,p_limit:30}),
@@ -410,8 +414,15 @@ function press(k){
   renderDisplay();
   if(input.length===4)setTimeout(submit,180);
 }
-function seatTap(seat){
+async function seatTap(seat){
   if(!seat.sid)return;
+  if(mode==='leave'&&isAdminView()&&seat.status!=='empty'){   // 관리자: 퇴실 누락 학생 자리 선택으로 빼기
+    if(!confirm(seat.name+' 학생(' +seat.no+'번 자리)을 퇴실 처리할까요?'))return;
+    try{const r=await B.adminRelease(adminPin(),seat.no);
+      if(r&&r.ok)toast(seat.name+' 퇴실 처리했어요 ('+seat.no+'번 비움)');else toast('퇴실 처리에 실패했어요 ('+((r&&r.code)||'오류')+')');
+    }catch(e){console.error(e);toast('오류가 났어요');}
+    return refresh();
+  }
   if((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out'))act(seat.sid,seat.name);
 }
 let resT;
@@ -421,6 +432,7 @@ function show(type,title,sub){
 }
 
 /* ===== 렌더 ===== */
+const ADMIN_LEAVE_HINT='퇴실: 뒷번호를 입력하거나, [관리자] 배치도에서 학생 자리를 눌러 퇴실 처리할 수 있어요';
 const HINTS={in:'입실: 뒷번호 4자리를 입력하면 자리가 자동 배정돼요',leave:'퇴실: 뒷번호 4자리를 입력하면 퇴실 처리돼요',
   out:'외출: 뒷번호를 입력하거나 배치도에서 내 자리를 눌러주세요',back:'복귀: 뒷번호를 입력하거나 배치도에서 외출 중인 내 자리를 눌러주세요'};
 const CAP={in:'입실하면 내 자리가 여기에 깜빡여요',leave:'퇴실하면 자리가 비워져요',out:'외출할 내 자리를 눌러도 돼요',back:'복귀할 내 자리를 눌러도 돼요'};
@@ -442,7 +454,7 @@ function buildMap(el,clickable){
     d.className=cls;d.innerHTML=inner;
     d.style.gridColumn=seat.col;d.style.gridRow=seat.row;
     if(clickable&&seat.no===hlNo)d.classList.add('hl');
-    if(clickable&&((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out'))){d.classList.add('tap');d.onclick=()=>seatTap(seat);}
+    if(clickable&&((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out')||(mode==='leave'&&isAdminView()&&seat.sid&&seat.status!=='empty'))){d.classList.add('tap');d.onclick=()=>seatTap(seat);}
     el.appendChild(d);
   });
   const sup=document.createElement('div');sup.className='sup';sup.textContent='감독관 자리';el.appendChild(sup);
@@ -451,8 +463,8 @@ const studySeats=()=>SEATS.filter(s=>s.kind==='study');
 function render(){
   buildMap($('#tvMap'),false);
   buildMap($('#padMap'),true);
-  $('#padMapCap').textContent=CAP[mode];
-  $('#hint').textContent=HINTS[mode];
+  $('#padMapCap').textContent=(mode==='leave'&&isAdminView())?'퇴실 처리할 학생의 자리를 눌러주세요 (관리자)':CAP[mode];
+  $('#hint').textContent=(mode==='leave'&&isAdminView())?ADMIN_LEAVE_HINT:HINTS[mode];
   const as=studySeats();
   const nIn=as.filter(s=>s.status==='in').length,nOut=as.filter(s=>s.status==='out').length;
   $('#sIn').textContent=nIn;$('#sOut').textContent=nOut;$('#sFree').textContent=as.length-nIn-nOut;
@@ -460,7 +472,7 @@ function render(){
   $('#outList').innerHTML=outs.length?outs.map(s=>{const sec=(Date.now()-s.outAt)/1000;
     return '<div class="row"><span>'+esc(s.name)+' <small style="color:#9aa4b3">('+s.no+'번)</small></span><span class="t'+(sec>OUT_WARN_SEC?' late':'')+'">'+fmt(sec)+'</span></div>';}).join(''):'<div class="none">외출 중인 학생이 없어요</div>';
 }
-const ACTLBL={in:'입실',leave:'퇴실',out:'외출',back:'복귀',reset:''};
+const ACTLBL={in:'입실',leave:'퇴실',admin_leave:'퇴실(관리자)',out:'외출',back:'복귀',reset:''};
 async function refreshAdmin(){
   const pin=adminPin();
   try{
