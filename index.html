@@ -52,6 +52,9 @@ body.r-tv .stage{padding:0;min-height:100vh;align-items:center;justify-content:c
 body.r-tv .tvwrap{max-width:none;flex:0 0 auto;width:min(98vw,calc(96vh*1.02))}
 body.r-tv .tv{border:0;border-radius:0;padding:0;background:transparent;box-shadow:none}
 body.r-tv .legend{display:none}
+/* 감독관 자리가 위로 오도록 180도 회전 (TV 화면 전용). 글자는 다시 반대로 돌려 바로 보이게 함 */
+body.r-tv .map{transform:rotate(180deg)}
+body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
 
 /* ---------- PAD ---------- */
 .pad{background:var(--card);border-radius:22px;border:8px solid #2b3340;padding:16px;box-shadow:0 8px 28px rgba(20,30,50,.15);display:grid;grid-template-columns:1fr;gap:16px}
