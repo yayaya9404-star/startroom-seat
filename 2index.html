@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+<title>자습실 출결·좌석</title>
+<style>
+:root{
+  --bg:#eef1f5; --ink:#1c2430; --mute:#6b7685; --line:#d8dee7; --card:#fff;
+  --in:#1fa971; --in-bg:#e3f6ed; --out:#f08c00; --out-bg:#fff1dc; --danger:#e03131;
+  --primary:#2f6fed;
+  --tv-bg:#e9edf3; --tv-card:#f7f9fc; --tv-line:#cfd7e3; --tv-ink:#1c2430; --tv-mute:#8b95a5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+/* 확대·축소 방지 (더블탭·핀치), 버튼 연타 시 화면 확대 방지 */
+html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{-webkit-user-select:none;user-select:none}
+input{-webkit-user-select:text;user-select:text}
+body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+header.top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 20px;background:#fff;border-bottom:1px solid var(--line)}
+header.top h1{font-size:17px;margin-right:auto}
+.badge{font-size:12px;padding:4px 9px;border-radius:99px;background:#eef1f5;color:var(--mute)}
+.badge.live{background:var(--in-bg);color:#0c7a4e}
+.badge.demo{background:var(--out-bg);color:#b36200}
+.seg{display:flex;background:#eef1f5;border-radius:10px;padding:3px}
+.seg button{border:0;background:none;padding:7px 14px;border-radius:8px;font-size:14px;cursor:pointer;color:var(--mute);font-family:inherit}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:600}
+.ghost{border:1px solid var(--line);background:#fff;padding:7px 12px;border-radius:8px;font-size:13px;cursor:pointer;font-family:inherit}
+.ghost:hover{background:#f6f8fb}
+.ghost.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.ghost.danger{color:var(--danger)}
+
+.stage{display:flex;gap:20px;padding:20px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+.padwrap{width:440px;flex:0 0 auto}
+.tvwrap{flex:1 1 560px;min-width:0;max-width:1000px}
+.adminside{width:320px;flex:0 0 auto}
+.label{font-size:12px;color:var(--mute);margin:0 0 6px 4px;letter-spacing:.02em}
+
+/* ----- 화면 모드 ----- */
+body.r-admin.v-pad .tvwrap, body.r-admin.v-pad .adminside{display:none}
+body.r-admin.v-tv .padwrap{display:none}
+body.r-admin.v-pad .padwrap{width:520px}
+body.r-admin.v-tv .tvwrap{max-width:1300px}
+/* 학생용 패드: 출결 + 자리배치만 */
+body.r-pad header.top, body.r-pad .tvwrap, body.r-pad .adminside, body.r-pad .label, body.r-pad .demo{display:none}
+body.r-pad .stage{padding:16px;justify-content:center}
+body.r-pad .padwrap{width:min(560px,100%)}
+/* 학생용 TV: 자리배치도만 */
+body.r-tv{background:var(--tv-bg)}
+body.r-tv header.top, body.r-tv .padwrap, body.r-tv .adminside, body.r-tv .label{display:none}
+body.r-tv .stage{padding:0;min-height:100vh;align-items:center;justify-content:center}
+body.r-tv .tvwrap{max-width:none;flex:0 0 auto;width:min(98vw,calc(96vh*1.02))}
+body.r-tv .tv{border:0;border-radius:0;padding:0;background:transparent;box-shadow:none}
+body.r-tv .legend{display:none}
+/* 감독관 자리가 위로 오도록 180도 회전 (TV 화면 전용). 글자는 다시 반대로 돌려 바로 보이게 함 */
+body.r-tv .map{transform:rotate(180deg)}
+body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
+
+/* ---------- PAD ---------- */
+.pad{background:var(--card);border-radius:22px;border:8px solid #2b3340;padding:16px;box-shadow:0 8px 28px rgba(20,30,50,.15);display:grid;grid-template-columns:1fr;gap:16px}
+.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.modes button{border:2px solid var(--line);background:#fff;border-radius:14px;padding:12px 0;font-size:17px;font-weight:700;cursor:pointer;color:var(--mute);font-family:inherit}
+.modes button.on[data-m=in]{background:var(--in);border-color:var(--in);color:#fff}
+.modes button.on[data-m=out]{background:var(--out);border-color:var(--out);color:#fff}
+.modes button.on[data-m=back]{background:var(--primary);border-color:var(--primary);color:#fff}
+.modes button.on[data-m=leave]{background:#4b5565;border-color:#4b5565;color:#fff}
+.hint{font-size:13px;color:var(--mute);text-align:center;margin-bottom:8px;min-height:18px}
+.display{display:flex;justify-content:center;gap:12px;margin:6px 0 12px}
+.display span{width:52px;height:64px;border-radius:12px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:30px;background:#f7f9fc}
+.display span.f{border-color:var(--ink);background:#fff}
+#result{min-height:78px;border-radius:14px;padding:12px 14px;margin-bottom:12px;display:flex;flex-direction:column;justify-content:center;background:#f3f5f9;color:var(--mute);font-size:14px;text-align:center}
+#result b{display:block;font-size:22px;color:var(--ink);margin-bottom:2px}
+#result.ok{background:var(--in-bg)} #result.ok b{color:#0c7a4e}
+#result.warn{background:var(--out-bg)} #result.warn b{color:#b36200}
+#result.err{background:#ffe8e8} #result.err b{color:var(--danger)}
+#result .seatbig{font-size:38px;font-weight:800;color:#0c7a4e;line-height:1.1}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:#fafbfd;font-size:26px;cursor:pointer;font-family:inherit}
+.keys button:active{background:#e6ecf7}
+.keys button.fn{font-size:16px;color:var(--mute)}
+.padR{margin-top:4px}
+.padR .cap{font-size:14px;color:var(--ink);text-align:center;margin-bottom:8px;font-weight:600}
+.demo{margin-top:10px;font-size:11px;color:#9aa4b3;text-align:center}
+@media(min-width:900px){
+  body.r-pad .padwrap,body.r-admin.v-pad .padwrap{width:min(1180px,100%)}
+  body.r-pad .pad,body.r-admin.v-pad .pad{grid-template-columns:380px minmax(0,1fr);align-items:start}
+}
+
+/* 팝업 */
+#chooser,#gate{position:fixed;inset:0;background:rgba(15,22,33,.55);display:none;align-items:center;justify-content:center;z-index:20}
+#chooser.show,#gate.show{display:flex}
+#gate{background:var(--bg);z-index:30}
+.box{background:#fff;border-radius:18px;padding:22px;width:min(420px,92vw)}
+.box h3{margin-bottom:4px;font-size:18px}
+.box p{color:var(--mute);font-size:13px;margin-bottom:14px}
+#chooser button.c{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fafbfd;border-radius:12px;padding:14px;font-size:18px;margin-bottom:8px;cursor:pointer;font-family:inherit}
+#chooser button.c small{color:var(--mute);font-size:13px;margin-left:8px}
+#chooser button.x{border:0;background:none;color:var(--mute);width:100%;padding:8px;cursor:pointer;font-family:inherit}
+#gate input{width:100%;font-size:22px;letter-spacing:.2em;text-align:center;padding:12px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px;font-family:inherit}
+#gate button{width:100%;padding:13px;border:0;border-radius:12px;background:var(--primary);color:#fff;font-size:16px;cursor:pointer;font-family:inherit}
+#gateErr{color:var(--danger);font-size:13px;min-height:18px;margin-bottom:6px}
+
+/* ---------- 좌석 지도 (TV·패드 공통) ---------- */
+.tv{background:var(--tv-bg);color:var(--tv-ink);border-radius:14px;padding:20px 24px;border:1px solid var(--line);box-shadow:0 8px 28px rgba(20,30,50,.10)}
+.map{container-type:inline-size;display:grid;grid-template-columns:repeat(8,1fr);gap:.9cqw;background:var(--tv-card);border-radius:12px;padding:2.2cqw}
+.seat{aspect-ratio:1/.92;border-radius:1cqw;border:1px solid var(--tv-line);background:#fff;position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;font-size:2.1cqw;line-height:1.15;text-align:center;color:var(--tv-ink)}
+.seat .no{position:absolute;top:.5cqw;left:.8cqw;font-size:1.3cqw;color:var(--tv-mute)}
+.seat .nm{font-weight:700;font-size:2.4cqw}
+.seat .tm{font-size:1.7cqw;font-variant-numeric:tabular-nums;font-weight:600}
+.seat.empty{background:#fff;border-style:dashed;color:#9aa4b3}
+.seat.in{background:#d6f3e5;border-color:#1fa971;color:#0b5a3a}
+.seat.out{background:#ffe9c4;border-color:var(--out);color:#8a4b00}
+.seat.out.late{background:#ffd6d6;border-color:#e03131;color:#a61e1e;animation:bl 1.2s infinite}
+@keyframes bl{50%{opacity:.6}}
+.seat.exam{background:repeating-linear-gradient(135deg,#eef1f6 0 6px,#e3e8f0 6px 12px);border-color:#d3dae5;color:#8b95a5}
+.seat.exam .nm{font-size:1.6cqw;font-weight:600}
+.seat.tap{cursor:pointer}
+.seat.hl{outline:.6cqw solid #2f6fed;outline-offset:.2cqw;animation:hl 1s infinite;z-index:2}
+@keyframes hl{50%{outline-color:transparent}}
+.sup{grid-column:3/8;grid-row:8;margin-top:1.4cqw;background:#dfe5ee;color:#4b5565;border-radius:1cqw;display:flex;align-items:center;justify-content:center;font-size:2.2cqw;padding:1.6cqw 0}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--tv-mute);margin-top:12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px;border:1px solid var(--tv-line)}
+
+/* ---------- 관리자 패널 ---------- */
+.adm{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.adm h4{font-size:13px;color:var(--mute);margin-bottom:8px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:#f5f7fa;border-radius:10px;padding:10px;text-align:center}
+.stat b{display:block;font-size:28px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--mute)}
+.stat.i b{color:var(--in)}.stat.o b{color:var(--out)}
+.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:15px}
+.row:last-child{border:0}
+.row .t{font-variant-numeric:tabular-nums;color:var(--out);font-weight:700}
+.row .t.late{color:var(--danger)}
+.row.log{font-size:12.5px;color:var(--mute)}
+.none{color:#9aa4b3;font-size:13px;padding:4px 0}
+.note{font-size:12px;color:var(--mute);line-height:1.6}
+.roster-info{font-size:14px;margin-bottom:10px}
+.roster-info b{font-size:20px}
+.upl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.upl input[type=file]{display:none}
+#preview{margin-top:10px;font-size:12.5px}
+#preview .sum{margin-bottom:6px;line-height:1.6}
+#preview table{width:100%;border-collapse:collapse;margin-bottom:8px}
+#preview th,#preview td{border-bottom:1px solid var(--line);padding:4px 6px;text-align:left;font-size:12.5px}
+#preview th{color:var(--mute);font-weight:600}
+#preview .warn{color:#b36200}
+#preview .err{color:var(--danger)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1c2430;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:40;max-width:90vw}
+</style>
+</head>
+<body class="r-admin v-both">
+<header class="top">
+  <h1>자습실 출결·좌석 <small style="color:var(--mute);font-weight:400">관리자 화면</small></h1>
+  <span class="badge" id="modeBadge"></span>
+  <div class="seg" id="viewSeg">
+    <button data-v="both" class="on">나란히 보기</button>
+    <button data-v="pad">패드 화면</button>
+    <button data-v="tv">TV 화면</button>
+  </div>
+  <button class="ghost" id="openPad">패드용 창 열기</button>
+  <button class="ghost" id="openTv">TV용 창 열기</button>
+  <button class="ghost" id="btnFill" style="display:none">시연용 채우기</button>
+  <button class="ghost danger" id="btnReset">전체 초기화</button>
+  <button class="ghost" id="btnLock">잠금</button>
+</header>
+
+<div class="stage">
+  <div class="padwrap">
+    <div class="label">패드 화면 (학생 입력용)</div>
+    <div class="pad">
+      <div class="padL">
+        <div class="modes" id="modes">
+          <button data-m="in" class="on">입실</button>
+          <button data-m="leave">퇴실</button>
+          <button data-m="out">외출</button>
+          <button data-m="back">복귀</button>
+        </div>
+        <div class="hint" id="hint"></div>
+        <div class="display" id="display"></div>
+        <div id="result">뒷번호 4자리를 입력하세요</div>
+        <div class="keys" id="keys"></div>
+        <div class="demo" id="demoHint"></div>
+      </div>
+      <div class="padR"><div class="cap" id="padMapCap"></div><div class="map" id="padMap"></div></div>
+    </div>
+  </div>
+
+  <div class="tvwrap">
+    <div class="label">전면 TV 화면 (자리배치도만 표시)</div>
+    <div class="tv">
+      <div class="map" id="tvMap"></div>
+      <div class="legend">
+        <span><i style="background:#d6f3e5;border-color:#1fa971"></i>착석</span>
+        <span><i style="background:#ffe9c4;border-color:#f08c00"></i>외출 중</span>
+        <span><i style="border-style:dashed"></i>빈자리</span>
+        <span><i style="background:repeating-linear-gradient(135deg,#eef1f6 0 3px,#e3e8f0 3px 6px)"></i>시험석</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="adminside">
+    <div class="label">관리자 전용 (학생 화면에는 안 나옴)</div>
+    <div class="adm">
+      <div class="stats">
+        <div class="stat i"><b id="sIn">0</b><span>재실</span></div>
+        <div class="stat o"><b id="sOut">0</b><span>외출</span></div>
+        <div class="stat"><b id="sFree">0</b><span>빈자리</span></div>
+      </div>
+    </div>
+    <div class="adm">
+      <h4>학생 명단</h4>
+      <div class="roster-info">등록 <b id="rosterCount">-</b>명</div>
+      <div class="upl">
+        <button class="ghost primary" id="btnPick">CSV·엑셀 업로드</button>
+        <input type="file" id="fileIn" accept=".csv,.xlsx,.xls,.txt">
+      </div>
+      <div class="note" style="margin-top:8px">열 이름 예: 이름 / 학년·반 / 연락처<br>연락처는 <b>뒤 4자리만</b> 뽑아 저장하고, 전체 번호는 저장하지 않아요.</div>
+      <div id="preview"></div>
+    </div>
+    <div class="adm"><h4>외출 중</h4><div id="outList"></div></div>
+    <div class="adm"><h4>최근 기록</h4><div id="logList"></div></div>
+    <div class="adm note">
+      학생용 주소<br>· 패드: 주소 끝에 <b>#pad</b><br>· TV: 주소 끝에 <b>#tv</b><br>· 관리자: 주소 끝 없음 (비밀번호 필요)
+    </div>
+  </div>
+</div>
+
+<div id="chooser"><div class="box">
+  <h3>뒷번호가 같은 학생이 있어요</h3><p>본인 이름을 눌러주세요</p>
+  <div id="chooseList"></div>
+  <button class="x" id="chooseCancel">취소</button>
+</div></div>
+
+<div id="gate"><div class="box">
+  <h3>관리자 화면</h3><p>비밀번호를 입력해주세요</p>
+  <input id="gatePin" type="password" autocomplete="off">
+  <div id="gateErr"></div>
+  <button id="gateOk">확인</button>
+</div></div>
+<div id="toast"></div>
+
+<script>
+/* =====================================================================
+   설정 — Supabase를 연결하려면 아래 두 값을 채우세요.
+   (Supabase 대시보드 > Project Settings > API 의 Project URL, anon public key)
+   비워두면 '데모 모드'(이 브라우저에만 저장)로 동작합니다.
+   ===================================================================== */
+const SUPABASE_URL      = 'https://qprksmuivuknplzugfeg.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwcmtzbXVpdnVrbnBsenVnZmVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5NzQwMzYsImV4cCI6MjEwNTU1MDAzNn0.lhFr6-1QsqOBbQV80FgM4ROKmP26gDj18s9G_8vvOcY';
+const DEMO_PIN          = '0000';   // 데모 모드 전용 관리자 비밀번호 (Supabase 연결 시엔 SQL에서 정한 비밀번호 사용)
+const OUT_WARN_SEC      = 15*60;    // 외출 15분 초과 시 붉게 표시
+const SYNC_FN_URL       = 'https://qprksmuivuknplzugfeg.supabase.co/functions/v1/sync-attendance';
+                                     // STaRT(바론네트웍스 관리 시스템) 자동 출석연동 함수 주소. 비워두면(따옴표 안을 지우면) 연동 안 함.
+                                     // Edge Function 이름을 sync-attendance 로 만드셨으면 이 값 그대로 두시면 됩니다.
+
+const REMOTE = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+
+/* ===== 좌석 배치 (번호 → 화면 위치). 번호는 아래 줄부터 위로, 왼쪽→오른쪽 ===== */
+const LAYOUT={};let _n=1;
+function lay(col,row){LAYOUT[_n++]={col,row};}
+for(let r=5;r>=1;r--)for(const c of [1,2])lay(c,r);      // 1~10  왼쪽 블록
+for(let r=5;r>=1;r--)for(const c of [4,5])lay(c,r);      // 11~20 가운데 블록
+for(let r=3;r>=1;r--)for(const c of [7,8])lay(c,r);      // 21~26 오른쪽 블록
+lay(8,5);lay(8,6);                                       // 27,28 오른쪽 아래 2석
+for(const c of [4,5,6,7])lay(c,7);                       // 29~32 감독관 앞
+const SEAT_NOS=Object.keys(LAYOUT).map(Number);
+/* 데모 모드에서만 쓰는 좌석 종류 (Supabase 연결 시엔 DB의 study_seats.kind 가 기준) */
+const kindOf=n=>(n>=27&&n<=32)?'exam':(n===22?'locked':'study');
+
+/* ===== 유틸 ===== */
+const $=s=>document.querySelector(s);
+const fmt=s=>{s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
+const hhmm=t=>new Date(t).toTimeString().slice(0,5);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>t.style.display='none',3500);}
+
+/* =====================================================================
+   백엔드 (로컬 데모 / Supabase) — 같은 함수 이름, 같은 결과 형태
+   결과: {ok, code, seat_no, secs}  code = ok|already_in|not_in|already_out|not_out|full|no_student
+   ===================================================================== */
+const DEMO_STUDENTS=[['김민준','중2','1234'],['이서연','중1','1234'],['박지호','중3','5678'],['최유나','중2','9012'],['정하윤','중1','3456'],
+  ['강도현','중3','7890'],['윤서아','중2','2468'],['임지우','중1','1357'],['한예준','중3','1111'],['오소윤','중2','2222']];
+
+const LocalBackend=(()=>{
+  const KEY='studyroom-local-v1';
+  const uid=()=>'s'+Math.random().toString(36).slice(2,10);
+  function fresh(){return{students:DEMO_STUDENTS.map(([name,grade_class,last4])=>({id:uid(),name,grade_class,last4})),
+    seats:SEAT_NOS.map(no=>({seat_no:no,kind:kindOf(no),student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null})),log:[]};}
+  function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.seats)return d;}catch(e){}const d=fresh();save(d);return d;}
+  function save(d){try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}}
+  function addLog(d,o){d.log.unshift(Object.assign({at:Date.now()},o));d.log.length=Math.min(d.log.length,200);}
+  const seatOf=(d,id)=>d.seats.find(s=>s.student_id===id);
+  return{
+    kind:'local',
+    async seats(){return load().seats;},
+    async find(last4){return load().students.filter(s=>s.last4===last4).sort((a,b)=>a.name.localeCompare(b.name,'ko')).map(({id,name,grade_class})=>({id,name,grade_class}));},
+    async checkin(id){const d=load();const st=d.students.find(s=>s.id===id);if(!st)return{ok:false,code:'no_student'};
+      const cur=seatOf(d,id);if(cur)return{ok:false,code:'already_in',seat_no:cur.seat_no};
+      const free=d.seats.filter(s=>s.kind==='study'&&s.status==='empty');if(!free.length)return{ok:false,code:'full'};
+      const p=free[Math.floor(Math.random()*free.length)];
+      Object.assign(p,{student_id:id,student_name:st.name,grade_class:st.grade_class,status:'in',out_at:null});
+      addLog(d,{student_name:st.name,seat_no:p.seat_no,action:'in'});save(d);return{ok:true,code:'ok',seat_no:p.seat_no};},
+    async checkout(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
+      addLog(d,{student_name:cur.student_name,seat_no:cur.seat_no,action:'leave'});const n=cur.seat_no;
+      Object.assign(cur,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});save(d);return{ok:true,code:'ok',seat_no:n};},
+    async goOut(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
+      if(cur.status==='out')return{ok:false,code:'already_out',seat_no:cur.seat_no};
+      cur.status='out';cur.out_at=Date.now();addLog(d,{student_name:cur.student_name,seat_no:cur.seat_no,action:'out'});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no};},
+    async comeBack(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
+      if(cur.status!=='out')return{ok:false,code:'not_out',seat_no:cur.seat_no};
+      const secs=Math.round((Date.now()-cur.out_at)/1000);cur.status='in';cur.out_at=null;
+      addLog(d,{student_name:cur.student_name,seat_no:cur.seat_no,action:'back',out_seconds:secs});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no,secs};},
+    async adminRelease(pin,no){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();const cur=d.seats.find(s=>s.seat_no===no);
+      if(!cur||!cur.student_id)return{ok:false,code:'not_in'};addLog(d,{student_name:cur.student_name,seat_no:no,action:'admin_leave'});
+      Object.assign(cur,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});save(d);return{ok:true,code:'ok',seat_no:no};},
+    async adminCheck(pin){return pin===DEMO_PIN;},
+    async studentCount(){return load().students.length;},
+    async logs(){return load().log.slice(0,30);},
+    async replaceStudents(pin,rows){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
+      d.students=rows.map(r=>({id:uid(),name:r.name,grade_class:r.grade_class||'',last4:r.last4}));
+      d.seats.forEach(s=>Object.assign(s,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null}));
+      addLog(d,{student_name:'명단 교체 '+d.students.length+'명',action:'reset'});save(d);return{ok:true,code:'ok',count:d.students.length};},
+    async resetAll(pin){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
+      d.seats.forEach(s=>Object.assign(s,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null}));
+      addLog(d,{student_name:'전체 초기화',action:'reset'});save(d);return{ok:true,code:'ok'};},
+    async fillDemo(){const d=load();for(const st of d.students.slice(1,9)){if(!seatOf(d,st.id)){const free=d.seats.filter(s=>s.kind==='study'&&s.status==='empty');
+        if(!free.length)break;const p=free[Math.floor(Math.random()*free.length)];Object.assign(p,{student_id:st.id,student_name:st.name,grade_class:st.grade_class,status:'in'});}}
+      const occ=d.seats.filter(s=>s.status==='in');
+      if(occ[0]){occ[0].status='out';occ[0].out_at=Date.now()-6*60*1000;}
+      if(occ[1]){occ[1].status='out';occ[1].out_at=Date.now()-17*60*1000;}save(d);},
+    subscribe(cb){window.addEventListener('storage',e=>{if(e.key===KEY)cb();});}
+  };
+})();
+
+const RemoteBackend=(()=>{
+  let sb;
+  const rpc=async(fn,args)=>{const{data,error}=await sb.rpc(fn,args);if(error)throw error;return data;};
+  return{
+    kind:'remote',
+    init(){sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);},
+    async seats(){const{data,error}=await sb.from('study_seats').select('*').order('seat_no');if(error)throw error;return data;},
+    find:l=>rpc('study_find',{p_last4:l}),
+    checkin:id=>rpc('study_checkin',{p_student:id}),
+    checkout:id=>rpc('study_checkout',{p_student:id}),
+    goOut:id=>rpc('study_go_out',{p_student:id}),
+    comeBack:id=>rpc('study_come_back',{p_student:id}),
+    adminRelease:(pin,no)=>rpc('study_admin_release_seat',{p_pin:pin,p_seat_no:no}),
+    adminCheck:pin=>rpc('study_admin_check',{p_pin:pin}),
+    studentCount:pin=>rpc('study_admin_student_count',{p_pin:pin}),
+    logs:pin=>rpc('study_admin_logs',{p_pin:pin,p_limit:30}),
+    replaceStudents:(pin,rows)=>rpc('study_admin_replace_students',{p_pin:pin,p_rows:rows}),
+    resetAll:pin=>rpc('study_admin_reset',{p_pin:pin}),
+    subscribe(cb){sb.channel('study_seats_live').on('postgres_changes',{event:'*',schema:'public',table:'study_seats'},cb).subscribe();}
+  };
+})();
+const B=REMOTE?RemoteBackend:LocalBackend;
+// 관리자 전용 호출은 (PIN 인자가 있는 함수는) 현재 PIN 을 붙여서 부른다
+const adminPin=()=>{try{return sessionStorage.getItem('admpin')||'';}catch(e){return '';}};
+
+/* =====================================================================
+   화면 상태
+   ===================================================================== */
+let SEATS=[];              // 정규화된 좌석 배열
+let mode='in',input='';
+let hlNo=null,hlT=null;
+function hl(n){hlNo=n;clearTimeout(hlT);hlT=setTimeout(()=>{hlNo=null;render();},10000);}
+
+function normalize(rows){
+  return rows.map(r=>({no:r.seat_no,kind:r.kind,sid:r.student_id,name:r.student_name,gc:r.grade_class,status:r.status,
+    outAt:r.out_at?(typeof r.out_at==='number'?r.out_at:Date.parse(r.out_at)):null,...LAYOUT[r.seat_no]}));
+}
+async function refresh(){
+  try{SEATS=normalize(await B.seats());}catch(e){console.error(e);showConn(false);return;}
+  showConn(true);render();
+  if(isAdminView()&&adminPin())refreshAdmin();
+}
+let connOk=true;
+function showConn(ok){if(connOk!==ok){connOk=ok;if(!ok)toast('서버 연결이 불안정해요. 잠시 후 다시 시도합니다.');}}
+
+/* ===== STaRT(바론네트웍스 관리 시스템) 자동 출석연동 =====
+   입실 성공 시에만, 서버(Edge Function)로 학생 정보를 조용히 던져줍니다.
+   실패해도 학생 체크인 흐름엔 전혀 영향 없도록 결과를 기다리지 않고 무시합니다. */
+function syncStart(id,name,grade_class,last4){
+  if(!SYNC_FN_URL)return;
+  try{
+    fetch(SYNC_FN_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPABASE_ANON_KEY},
+      body:JSON.stringify({student_id:id,name,grade_class,last4})}).catch(()=>{});
+  }catch(e){}
+}
+
+/* ===== 동작 ===== */
+const ACT={in:'checkin',leave:'checkout',out:'goOut',back:'comeBack'};
+function report(m,name,r){
+  const seat=r.seat_no;
+  switch(r.code){
+    case 'no_student': return show('err','등록되지 않은 학생이에요','');
+    case 'full': return show('err','빈자리가 없어요','선생님께 문의해주세요');
+    case 'already_in': hl(seat);return show('warn',name+' · 이미 입실 상태','내 자리는 '+seat+'번이에요');
+    case 'not_in': return show('warn',name+' · 입실 기록이 없어요',m==='back'||m==='out'?'먼저 입실해주세요':'');
+    case 'already_out': hl(seat);return show('warn',name+' · 이미 외출 중','복귀 탭에서 복귀해주세요');
+    case 'not_out': hl(seat);return show('warn',name+' · 외출 중이 아니에요','');
+  }
+  if(m==='in'){hl(seat);return show('ok',name+' 입실 완료','<span class="seatbig">'+seat+'번 자리</span> 배치도에서 깜빡이는 자리예요');}
+  if(m==='leave')return show('ok',name+' 퇴실 완료','안녕히 가세요!');
+  if(m==='out'){hl(seat);return show('warn',name+' 외출 시작','자리는 '+seat+'번 그대로 유지돼요');}
+  if(m==='back'){hl(seat);return show('ok',name+' 복귀 완료','외출 시간 '+fmt(r.secs||0)+' · '+seat+'번 자리');}
+}
+async function act(id,name,grade_class,last4){
+  const m=mode;
+  try{
+    const r=await B[ACT[m]](id);
+    report(m,name,r);
+    if(m==='in'&&r&&r.ok)syncStart(id,name,grade_class,last4);
+  }
+  catch(e){console.error(e);show('err','연결 오류','잠시 후 다시 시도해주세요');}
+  refresh();
+}
+async function submit(){
+  const code=input;input='';renderDisplay();
+  let cand;
+  try{cand=await B.find(code);}catch(e){console.error(e);return show('err','연결 오류','잠시 후 다시 시도해주세요');}
+  if(!cand.length)return show('err','등록되지 않은 번호예요','다시 입력해주세요');
+  if(cand.length===1)return act(cand[0].id,cand[0].name,cand[0].grade_class,code);
+  const box=$('#chooseList');box.innerHTML='';
+  cand.forEach(s=>{const b=document.createElement('button');b.className='c';b.innerHTML=esc(s.name)+'<small>'+esc(s.grade_class||'')+'</small>';
+    b.onclick=()=>{$('#chooser').classList.remove('show');act(s.id,s.name,s.grade_class,code);};box.appendChild(b);});
+  $('#chooser').classList.add('show');
+}
+function press(k){
+  if(k==='C')input='';
+  else if(k==='B')input=input.slice(0,-1);
+  else if(input.length<4)input+=k;
+  renderDisplay();
+  if(input.length===4)setTimeout(submit,180);
+}
+async function seatTap(seat){
+  if(!seat.sid)return;
+  if(mode==='leave'&&isAdminView()&&seat.status!=='empty'){   // 관리자: 퇴실 누락 학생 자리 선택으로 빼기
+    if(!confirm(seat.name+' 학생(' +seat.no+'번 자리)을 퇴실 처리할까요?'))return;
+    try{const r=await B.adminRelease(adminPin(),seat.no);
+      if(r&&r.ok)toast(seat.name+' 퇴실 처리했어요 ('+seat.no+'번 비움)');else toast('퇴실 처리에 실패했어요 ('+((r&&r.code)||'오류')+')');
+    }catch(e){console.error(e);toast('오류가 났어요');}
+    return refresh();
+  }
+  if((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out'))act(seat.sid,seat.name);
+}
+let resT;
+function show(type,title,sub){
+  const r=$('#result');r.className=type;r.innerHTML='<b>'+esc(title)+'</b>'+(sub||'');
+  clearTimeout(resT);resT=setTimeout(()=>{r.className='';r.innerHTML='뒷번호 4자리를 입력하세요';},5000);
+}
+
+/* ===== 렌더 ===== */
+const ADMIN_LEAVE_HINT='퇴실: 뒷번호를 입력하거나, [관리자] 배치도에서 학생 자리를 눌러 퇴실 처리할 수 있어요';
+const HINTS={in:'입실: 뒷번호 4자리를 입력하면 자리가 자동 배정돼요',leave:'퇴실: 뒷번호 4자리를 입력하면 퇴실 처리돼요',
+  out:'외출: 뒷번호를 입력하거나 배치도에서 내 자리를 눌러주세요',back:'복귀: 뒷번호를 입력하거나 배치도에서 외출 중인 내 자리를 눌러주세요'};
+const CAP={in:'입실하면 내 자리가 여기에 깜빡여요',leave:'퇴실하면 자리가 비워져요',out:'외출할 내 자리를 눌러도 돼요',back:'복귀할 내 자리를 눌러도 돼요'};
+function renderDisplay(){
+  const d=$('#display');d.innerHTML='';
+  for(let i=0;i<4;i++){const s=document.createElement('span');if(i<input.length){s.className='f';s.textContent='●';}d.appendChild(s);}
+}
+function buildMap(el,clickable){
+  el.innerHTML='';
+  SEATS.forEach(seat=>{
+    const d=document.createElement('div');
+    let cls='seat '+(seat.kind==='exam'?'exam':seat.status);
+    let inner='<span class="no">'+seat.no+'</span>';
+    if(seat.kind==='exam')inner+='<span class="nm">시험석</span>';
+    else if(seat.sid&&seat.status!=='empty'){
+      inner+='<span class="nm">'+esc(seat.name)+'</span>';
+      if(seat.status==='out'){const sec=(Date.now()-seat.outAt)/1000;inner+='<span class="tm">외출 '+fmt(sec)+'</span>';if(sec>OUT_WARN_SEC)cls+=' late';}
+    }
+    d.className=cls;d.innerHTML=inner;
+    d.style.gridColumn=seat.col;d.style.gridRow=seat.row;
+    if(clickable&&seat.no===hlNo)d.classList.add('hl');
+    if(clickable&&((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out')||(mode==='leave'&&isAdminView()&&seat.sid&&seat.status!=='empty'))){d.classList.add('tap');d.onclick=()=>seatTap(seat);}
+    el.appendChild(d);
+  });
+  const sup=document.createElement('div');sup.className='sup';sup.textContent='감독관 자리';el.appendChild(sup);
+}
+const studySeats=()=>SEATS.filter(s=>s.kind==='study');
+function render(){
+  buildMap($('#tvMap'),false);
+  buildMap($('#padMap'),true);
+  $('#padMapCap').textContent=(mode==='leave'&&isAdminView())?'퇴실 처리할 학생의 자리를 눌러주세요 (관리자)':CAP[mode];
+  $('#hint').textContent=(mode==='leave'&&isAdminView())?ADMIN_LEAVE_HINT:HINTS[mode];
+  const as=studySeats();
+  const nIn=as.filter(s=>s.status==='in').length,nOut=as.filter(s=>s.status==='out').length;
+  $('#sIn').textContent=nIn;$('#sOut').textContent=nOut;$('#sFree').textContent=as.length-nIn-nOut;
+  const outs=as.filter(s=>s.status==='out');
+  $('#outList').innerHTML=outs.length?outs.map(s=>{const sec=(Date.now()-s.outAt)/1000;
+    return '<div class="row"><span>'+esc(s.name)+' <small style="color:#9aa4b3">('+s.no+'번)</small></span><span class="t'+(sec>OUT_WARN_SEC?' late':'')+'">'+fmt(sec)+'</span></div>';}).join(''):'<div class="none">외출 중인 학생이 없어요</div>';
+}
+const ACTLBL={in:'입실',leave:'퇴실',admin_leave:'퇴실(관리자)',out:'외출',back:'복귀',reset:''};
+async function refreshAdmin(){
+  const pin=adminPin();
+  try{
+    const [cnt,logs]=await Promise.all([B.studentCount(pin),B.logs(pin)]);
+    $('#rosterCount').textContent=cnt==null?'-':cnt;
+    $('#logList').innerHTML=(logs&&logs.length)?logs.map(l=>'<div class="row log"><span>'+hhmm(l.at)+'  '+esc(l.student_name||'')+' '+(ACTLBL[l.action]||'')+(l.seat_no&&l.action!=='reset'?' ('+l.seat_no+'번)':'')+'</span><span>'+(l.action==='back'&&l.out_seconds!=null?'외출 '+fmt(l.out_seconds):'')+'</span></div>').join(''):'<div class="none">아직 기록이 없어요</div>';
+  }catch(e){console.error(e);}
+}
+function tick(){if(SEATS.some(s=>s.status==='out'))render();}
+
+/* =====================================================================
+   명단 업로드 (CSV / 엑셀)
+   ===================================================================== */
+let pendingRows=null;
+function decodeText(buf){
+  try{return new TextDecoder('utf-8',{fatal:true}).decode(buf);}
+  catch(e){return new TextDecoder('euc-kr').decode(buf);}   // 엑셀 '한국어 CSV'는 CP949
+}
+function parseCSV(text){
+  text=text.replace(/^﻿/,'');const rows=[];let row=[],cell='',q=false;
+  const delim=(text.split('\n')[0].match(/\t/g)||[]).length>(text.split('\n')[0].match(/,/g)||[]).length?'\t':',';
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){cell+='"';i++;}else q=false;}else cell+=c;}
+    else if(c==='"')q=true;
+    else if(c===delim){row.push(cell);cell='';}
+    else if(c==='\n'||c==='\r'){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);cell='';rows.push(row);row=[];}
+    else cell+=c;}
+  if(cell!==''||row.length){row.push(cell);rows.push(row);}
+  return rows.filter(r=>r.some(x=>String(x).trim()!==''));
+}
+function loadXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res();const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';s.onload=res;s.onerror=()=>rej(new Error('엑셀 변환 도구를 불러오지 못했어요. CSV로 저장해서 올려주세요.'));document.head.appendChild(s);});}
+async function readTable(file){
+  const buf=await file.arrayBuffer();
+  if(/\.xlsx?$/i.test(file.name)){await loadXLSX();const wb=XLSX.read(buf,{type:'array'});
+    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''}).filter(r=>r.some(x=>String(x).trim()!==''));}
+  return parseCSV(decodeText(buf));
+}
+function buildRoster(table){
+  if(!table.length)return{rows:[],skipped:0,map:'파일이 비어 있어요'};
+  const head=table[0].map(x=>String(x).trim());
+  const find=re=>head.map((h,i)=>re.test(h)?i:-1).filter(i=>i>=0);
+  let nameI=find(/이름|성명|학생|name/i)[0],clsI=find(/학년|반|class|grade/i),phI=find(/연락처|전화|휴대|핸드폰|폰|번호|phone|tel/i);
+  let start=1,note='';
+  if(nameI===undefined||!phI.length){ // 머리글이 없다고 보고 순서로 추정: 이름, (학년/반…), 연락처(마지막)
+    nameI=0;phI=[head.length-1];clsI=head.length>2?[1]:[];start=0;note='머리글을 못 찾아 순서로 추정했어요 (이름 / 학년·반 / 연락처)';}
+  const rows=[];let skipped=0;
+  for(let i=start;i<table.length;i++){const r=table[i];
+    const name=String(r[nameI]||'').trim();
+    const digits=String(r[phI[0]]||'').replace(/\D/g,'');
+    if(!name||digits.length<4){skipped++;continue;}
+    rows.push({name,grade_class:clsI.filter(c=>c!==nameI).map(c=>String(r[c]||'').trim()).filter(Boolean).join(' '),last4:digits.slice(-4)});
+  }
+  return{rows,skipped,map:note||('인식한 열: 이름="'+head[nameI]+'"'+(clsI.length?', 학년/반="'+clsI.map(c=>head[c]).join('+')+'"':'')+', 연락처="'+head[phI[0]]+'"')};
+}
+function showPreview(res){
+  const box=$('#preview');
+  if(!res.rows.length){box.innerHTML='<div class="err">읽을 수 있는 학생이 없어요. '+esc(res.map)+'</div>';pendingRows=null;return;}
+  const cnt={};res.rows.forEach(r=>cnt[r.last4]=(cnt[r.last4]||0)+1);
+  const dup=Object.values(cnt).filter(n=>n>1).length;
+  pendingRows=res.rows;
+  box.innerHTML='<div class="sum"><b>'+res.rows.length+'명</b> 인식'+(res.skipped?' · <span class="warn">'+res.skipped+'행 제외(이름/연락처 없음)</span>':'')+
+    (dup?' · 뒷번호 겹침 <b>'+dup+'</b>건(이름 선택 창으로 처리)':'')+'<br><span style="color:var(--mute)">'+esc(res.map)+'</span></div>'+
+    '<table><tr><th>이름</th><th>학년/반</th><th>뒷번호</th></tr>'+res.rows.slice(0,6).map(r=>'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.grade_class)+'</td><td>'+r.last4+'</td></tr>').join('')+
+    (res.rows.length>6?'<tr><td colspan="3" style="color:var(--mute)">… 외 '+(res.rows.length-6)+'명</td></tr>':'')+'</table>'+
+    '<div class="upl"><button class="ghost primary" id="btnApply">이 명단으로 교체</button><button class="ghost" id="btnCancelUp">취소</button></div>'+
+    '<div class="note" style="margin-top:6px">교체하면 기존 명단이 지워지고 <b>현재 자리 배정도 모두 초기화</b>돼요.</div>';
+  $('#btnCancelUp').onclick=()=>{pendingRows=null;box.innerHTML='';};
+  $('#btnApply').onclick=async()=>{
+    try{const r=await B.replaceStudents(adminPin(),pendingRows);
+      if(!r||!r.ok){toast('교체에 실패했어요 ('+(r&&r.code||'오류')+')');return;}
+      toast('명단 '+r.count+'명으로 교체했어요');pendingRows=null;box.innerHTML='';await refresh();await refreshAdmin();
+    }catch(e){console.error(e);toast('교체 중 오류가 났어요');}
+  };
+}
+
+/* =====================================================================
+   화면 잠금/라우팅
+   ===================================================================== */
+const isAdminView=()=>document.body.classList.contains('r-admin');
+function route(){
+  const h=location.hash.replace('#','');const g=$('#gate');
+  if(h==='pad'){document.body.className='r-pad';g.classList.remove('show');}
+  else if(h==='tv'){document.body.className='r-tv';g.classList.remove('show');}
+  else{
+    const v=(document.querySelector('#viewSeg .on')||{dataset:{v:'both'}}).dataset.v;
+    document.body.className='r-admin v-'+v;
+    if(adminPin()){g.classList.remove('show');refreshAdmin();}
+    else{g.classList.add('show');$('#gatePin').value='';setTimeout(()=>$('#gatePin').focus(),50);}
+  }
+  render();
+}
+async function tryUnlock(){
+  const pin=$('#gatePin').value;
+  try{
+    if(await B.adminCheck(pin)){try{sessionStorage.setItem('admpin',pin);}catch(e){}$('#gateErr').textContent='';route();}
+    else{$('#gateErr').textContent='비밀번호가 맞지 않아요';$('#gatePin').value='';}
+  }catch(e){console.error(e);$('#gateErr').textContent='서버에 연결하지 못했어요';}
+}
+
+/* ===== 이벤트 ===== */
+const keys=$('#keys');
+['1','2','3','4','5','6','7','8','9','C','0','B'].forEach(k=>{
+  const b=document.createElement('button');b.textContent=k==='C'?'지우기':k==='B'?'⌫':k;if(k==='C')b.className='fn';
+  b.onclick=()=>press(k);keys.appendChild(b);});
+$('#modes').onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=b.dataset.m;input='';
+  document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b));renderDisplay();render();};
+$('#viewSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on',x===b));document.body.className='r-admin v-'+b.dataset.v;};
+$('#chooseCancel').onclick=()=>$('#chooser').classList.remove('show');
+$('#gateOk').onclick=tryUnlock;
+$('#gatePin').addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock();});
+$('#btnLock').onclick=()=>{try{sessionStorage.removeItem('admpin');}catch(e){}route();};
+const base=()=>location.href.split('#')[0];
+$('#openPad').onclick=()=>window.open(base()+'#pad','_blank');
+$('#openTv').onclick=()=>window.open(base()+'#tv','_blank');
+$('#btnReset').onclick=async()=>{
+  if(!confirm('모든 자리를 비우고 전체 초기화할까요?\n(학생 명단은 그대로 유지됩니다)'))return;
+  try{const r=await B.resetAll(adminPin());if(r&&r.ok)toast('전체 초기화했어요');else toast('초기화 실패');}catch(e){console.error(e);toast('오류가 났어요');}
+  refresh();};
+$('#btnFill').onclick=async()=>{await B.fillDemo();refresh();};
+$('#btnPick').onclick=()=>$('#fileIn').click();
+$('#fileIn').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{showPreview(buildRoster(await readTable(f)));}catch(err){console.error(err);$('#preview').innerHTML='<div class="err">'+esc(err.message||'파일을 읽지 못했어요')+'</div>';}
+};
+window.addEventListener('hashchange',route);
+
+/* ===== 시작 ===== */
+async function boot(){
+  if(REMOTE){
+    await new Promise(res=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';s.onload=res;s.onerror=res;document.head.appendChild(s);});
+    if(!window.supabase){toast('Supabase 라이브러리를 불러오지 못했어요');}
+    else RemoteBackend.init();
+  }
+  const mb=$('#modeBadge');
+  mb.textContent=REMOTE?'Supabase 연결됨':'데모 모드 (이 브라우저에만 저장)';mb.className='badge '+(REMOTE?'live':'demo');
+  if(!REMOTE){$('#btnFill').style.display='';
+    B.find('1234').then(()=>{const d=JSON.parse(localStorage.getItem('studyroom-local-v1')||'{}');
+      if(d.students)$('#demoHint').textContent='시연용 뒷번호: '+[...new Set(d.students.map(s=>s.last4))].slice(0,9).join(' · ');});}
+  renderDisplay();
+  B.subscribe(()=>refresh());
+  await refresh();
+  route();
+  setInterval(tick,1000);
+  setInterval(refresh,REMOTE?20000:60000);   // 실시간 신호를 놓쳐도 주기적으로 맞춤
+}
+/* 확대·축소 막기: 핀치(터치 2개), iOS 제스처, Ctrl+휠, Ctrl +/-/0 */
+['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
+document.addEventListener('touchmove',e=>{if(e.touches&&e.touches.length>1)e.preventDefault();},{passive:false});
+document.addEventListener('wheel',e=>{if(e.ctrlKey)e.preventDefault();},{passive:false});
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&['+','-','=','0'].includes(e.key))e.preventDefault();});
+boot();
+</script>
+</body>
+</html>
