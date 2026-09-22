@@ -251,6 +251,9 @@ const SUPABASE_URL      = 'https://qprksmuivuknplzugfeg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwcmtzbXVpdnVrbnBsenVnZmVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5NzQwMzYsImV4cCI6MjEwNTU1MDAzNn0.lhFr6-1QsqOBbQV80FgM4ROKmP26gDj18s9G_8vvOcY';
 const DEMO_PIN          = '0000';   // 데모 모드 전용 관리자 비밀번호 (Supabase 연결 시엔 SQL에서 정한 비밀번호 사용)
 const OUT_WARN_SEC      = 15*60;    // 외출 15분 초과 시 붉게 표시
+const SYNC_FN_URL       = 'https://qprksmuivuknplzugfeg.supabase.co/functions/v1/sync-attendance';
+                                     // STaRT(바론네트웍스 관리 시스템) 자동 출석연동 함수 주소. 비워두면(따옴표 안을 지우면) 연동 안 함.
+                                     // Edge Function 이름을 sync-attendance 로 만드셨으면 이 값 그대로 두시면 됩니다.
 
 const REMOTE = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 
@@ -376,6 +379,17 @@ async function refresh(){
 let connOk=true;
 function showConn(ok){if(connOk!==ok){connOk=ok;if(!ok)toast('서버 연결이 불안정해요. 잠시 후 다시 시도합니다.');}}
 
+/* ===== STaRT(바론네트웍스 관리 시스템) 자동 출석연동 =====
+   입실 성공 시에만, 서버(Edge Function)로 학생 정보를 조용히 던져줍니다.
+   실패해도 학생 체크인 흐름엔 전혀 영향 없도록 결과를 기다리지 않고 무시합니다. */
+function syncStart(id,name,grade_class,last4){
+  if(!SYNC_FN_URL)return;
+  try{
+    fetch(SYNC_FN_URL,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPABASE_ANON_KEY},
+      body:JSON.stringify({student_id:id,name,grade_class,last4})}).catch(()=>{});
+  }catch(e){}
+}
+
 /* ===== 동작 ===== */
 const ACT={in:'checkin',leave:'checkout',out:'goOut',back:'comeBack'};
 function report(m,name,r){
@@ -393,9 +407,13 @@ function report(m,name,r){
   if(m==='out'){hl(seat);return show('warn',name+' 외출 시작','자리는 '+seat+'번 그대로 유지돼요');}
   if(m==='back'){hl(seat);return show('ok',name+' 복귀 완료','외출 시간 '+fmt(r.secs||0)+' · '+seat+'번 자리');}
 }
-async function act(id,name){
+async function act(id,name,grade_class,last4){
   const m=mode;
-  try{report(m,name,await B[ACT[m]](id));}
+  try{
+    const r=await B[ACT[m]](id);
+    report(m,name,r);
+    if(m==='in'&&r&&r.ok)syncStart(id,name,grade_class,last4);
+  }
   catch(e){console.error(e);show('err','연결 오류','잠시 후 다시 시도해주세요');}
   refresh();
 }
@@ -404,10 +422,10 @@ async function submit(){
   let cand;
   try{cand=await B.find(code);}catch(e){console.error(e);return show('err','연결 오류','잠시 후 다시 시도해주세요');}
   if(!cand.length)return show('err','등록되지 않은 번호예요','다시 입력해주세요');
-  if(cand.length===1)return act(cand[0].id,cand[0].name);
+  if(cand.length===1)return act(cand[0].id,cand[0].name,cand[0].grade_class,code);
   const box=$('#chooseList');box.innerHTML='';
   cand.forEach(s=>{const b=document.createElement('button');b.className='c';b.innerHTML=esc(s.name)+'<small>'+esc(s.grade_class||'')+'</small>';
-    b.onclick=()=>{$('#chooser').classList.remove('show');act(s.id,s.name);};box.appendChild(b);});
+    b.onclick=()=>{$('#chooser').classList.remove('show');act(s.id,s.name,s.grade_class,code);};box.appendChild(b);});
   $('#chooser').classList.add('show');
 }
 function press(k){
