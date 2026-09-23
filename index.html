@@ -41,6 +41,16 @@ body.r-admin.v-pad .tvwrap, body.r-admin.v-pad .adminside{display:none}
 body.r-admin.v-tv .padwrap{display:none}
 body.r-admin.v-pad .padwrap{width:520px}
 body.r-admin.v-tv .tvwrap{max-width:1300px}
+/* 나란히 보기(기본 관리자 화면)에선 숫자패드 대신 배치도를 눌러서 관리 */
+body.r-admin.v-both .padwrap{display:none}
+body.r-admin.v-both .tvwrap{max-width:1300px}
+.adminhint{display:none;font-size:13px;background:#eef4ff;color:var(--primary);border:1px solid #cfe0ff;border-radius:10px;padding:9px 12px;margin-bottom:10px;text-align:center}
+.adminhint.show{display:block}
+.adminhint button{margin-left:10px;border:0;background:none;color:var(--mute);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:12.5px}
+.seat.movetarget{outline:.5cqw dashed #1fa971;outline-offset:.2cqw}
+.seat.moving{outline:.6cqw solid var(--primary);outline-offset:.2cqw;animation:hl 1s infinite;z-index:2}
+#seatMenu{position:fixed;inset:0;background:rgba(15,22,33,.55);display:none;align-items:center;justify-content:center;z-index:20}
+#seatMenu.show{display:flex}
 .historywrap{display:none;width:100%}
 body.r-admin.v-history .padwrap, body.r-admin.v-history .tvwrap, body.r-admin.v-history .adminside{display:none}
 body.r-admin.v-history .historywrap{display:block}
@@ -107,9 +117,11 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
 .box{background:#fff;border-radius:18px;padding:22px;width:min(420px,92vw)}
 .box h3{margin-bottom:4px;font-size:18px}
 .box p{color:var(--mute);font-size:13px;margin-bottom:14px}
-#chooser button.c{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fafbfd;border-radius:12px;padding:14px;font-size:18px;margin-bottom:8px;cursor:pointer;font-family:inherit}
-#chooser button.c small{color:var(--mute);font-size:13px;margin-left:8px}
-#chooser button.x{border:0;background:none;color:var(--mute);width:100%;padding:8px;cursor:pointer;font-family:inherit}
+#chooser button.c,#seatMenu button.c{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fafbfd;border-radius:12px;padding:14px;font-size:18px;margin-bottom:8px;cursor:pointer;font-family:inherit}
+#chooser button.c small,#seatMenu button.c small{color:var(--mute);font-size:13px;margin-left:8px}
+#chooser button.x,#seatMenu button.x{border:0;background:none;color:var(--mute);width:100%;padding:8px;cursor:pointer;font-family:inherit}
+#seatMenu button.c.danger{color:var(--danger);border-color:#f3c9c9}
+#seatMenu button.c.warn{color:#b36200;border-color:#f3dcae}
 #gate input{width:100%;font-size:22px;letter-spacing:.2em;text-align:center;padding:12px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px;font-family:inherit}
 #gate button{width:100%;padding:13px;border:0;border-radius:12px;background:var(--primary);color:#fff;font-size:16px;cursor:pointer;font-family:inherit}
 #gateErr{color:var(--danger);font-size:13px;min-height:18px;margin-bottom:6px}
@@ -203,7 +215,8 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
   </div>
 
   <div class="tvwrap">
-    <div class="label">전면 TV 화면 (자리배치도만 표시)</div>
+    <div class="label" id="tvLabel">전면 TV 화면 (자리배치도만 표시)</div>
+    <div class="adminhint" id="adminMapHint"></div>
     <div class="tv">
       <div class="map" id="tvMap"></div>
       <div class="legend">
@@ -259,6 +272,12 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
   <h3>뒷번호가 같은 학생이 있어요</h3><p>본인 이름을 눌러주세요</p>
   <div id="chooseList"></div>
   <button class="x" id="chooseCancel">취소</button>
+</div></div>
+
+<div id="seatMenu"><div class="box">
+  <h3 id="seatMenuTitle"></h3><p id="seatMenuSub"></p>
+  <div id="seatMenuActions"></div>
+  <button class="x" id="seatMenuCancel">취소</button>
 </div></div>
 
 <div id="gate"><div class="box">
@@ -377,6 +396,16 @@ const LocalBackend=(()=>{
     async adminRelease(pin,no){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();const cur=d.seats.find(s=>s.seat_no===no);
       if(!cur||!cur.student_id)return{ok:false,code:'not_in'};addLog(d,{student_id:cur.student_id,student_name:cur.student_name,seat_no:no,action:'admin_leave'});
       Object.assign(cur,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});save(d);return{ok:true,code:'ok',seat_no:no};},
+    async adminMoveSeat(pin,from,to){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};if(from===to)return{ok:false,code:'same_seat'};
+      const d=load();const src=d.seats.find(s=>s.seat_no===from);const dst=d.seats.find(s=>s.seat_no===to);
+      if(!src||!src.student_id)return{ok:false,code:'not_in'};
+      if(!dst||dst.kind!=='study')return{ok:false,code:'bad_target'};
+      if(dst.student_id)return{ok:false,code:'target_full'};
+      Object.assign(dst,{student_id:src.student_id,student_name:src.student_name,grade_class:src.grade_class,status:src.status,out_at:src.out_at});
+      const movedId=src.student_id,movedName=src.student_name;
+      Object.assign(src,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});
+      addLog(d,{student_id:movedId,student_name:movedName,seat_no:to,action:'move',out_seconds:from});save(d);
+      return{ok:true,code:'ok',seat_no:to};},
     async adminCheck(pin){return pin===DEMO_PIN;},
     async studentCount(){return load().students.length;},
     async logs(){return load().log.slice(0,30);},
@@ -410,6 +439,7 @@ const RemoteBackend=(()=>{
     goOut:id=>rpc('study_go_out',{p_student:id}),
     comeBack:id=>rpc('study_come_back',{p_student:id}),
     adminRelease:(pin,no)=>rpc('study_admin_release_seat',{p_pin:pin,p_seat_no:no}),
+    adminMoveSeat:(pin,from,to)=>rpc('study_admin_move_seat',{p_pin:pin,p_from_seat:from,p_to_seat:to}),
     adminCheck:pin=>rpc('study_admin_check',{p_pin:pin}),
     studentCount:pin=>rpc('study_admin_student_count',{p_pin:pin}),
     logs:pin=>rpc('study_admin_logs',{p_pin:pin,p_limit:30}),
@@ -429,6 +459,7 @@ const adminPin=()=>{try{return sessionStorage.getItem('admpin')||'';}catch(e){re
 let SEATS=[];              // 정규화된 좌석 배열
 let mode='in',input='';
 let hlNo=null,hlT=null;
+let moveFrom=null;         // 관리자: 지금 이동시키려는 학생의 원래 자리번호 (null이면 이동중 아님)
 function hl(n){hlNo=n;clearTimeout(hlT);hlT=setTimeout(()=>{hlNo=null;render();},10000);}
 
 function normalize(rows){
@@ -510,6 +541,51 @@ async function seatTap(seat){
   }
   if((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out'))act(seat.sid,seat.name);
 }
+
+/* ===== 관리자: 배치도에서 자리를 눌러 이동·외출·복귀·퇴실 관리 (관리자 화면에서만 보임) ===== */
+function openSeatMenu(seat){
+  $('#seatMenuTitle').textContent=seat.no+'번 자리';
+  $('#seatMenuSub').textContent=esc(seat.name)+(seat.gc?' · '+esc(seat.gc):'');
+  const box=$('#seatMenuActions');box.innerHTML='';
+  const addBtn=(label,cls,fn)=>{const b=document.createElement('button');b.className='c'+(cls?' '+cls:'');b.textContent=label;
+    b.onclick=()=>{$('#seatMenu').classList.remove('show');fn();};box.appendChild(b);};
+  if(studySeats().some(s=>s.status==='empty'&&s.no!==seat.no)){
+    addBtn('다른 자리로 이동','',()=>{moveFrom=seat.no;render();});
+  }
+  if(seat.status==='in')addBtn('외출 처리','warn',()=>seatMenuGoOut(seat));
+  if(seat.status==='out')addBtn('복귀 처리','',()=>seatMenuComeBack(seat));
+  addBtn('퇴실 처리','danger',()=>seatMenuLeave(seat));
+  $('#seatMenu').classList.add('show');
+}
+async function seatMenuGoOut(seat){
+  try{const r=await B.goOut(seat.sid);
+    if(r&&r.ok)toast(seat.name+' 외출 처리했어요');else toast('외출 처리에 실패했어요 ('+((r&&r.code)||'오류')+')');
+  }catch(e){console.error(e);toast('오류가 났어요');}
+  refresh();
+}
+async function seatMenuComeBack(seat){
+  try{const r=await B.comeBack(seat.sid);
+    if(r&&r.ok)toast(seat.name+' 복귀 처리했어요');else toast('복귀 처리에 실패했어요 ('+((r&&r.code)||'오류')+')');
+  }catch(e){console.error(e);toast('오류가 났어요');}
+  refresh();
+}
+async function seatMenuLeave(seat){
+  if(!confirm(seat.name+' 학생('+seat.no+'번 자리)을 퇴실 처리할까요?'))return;
+  try{const r=await B.adminRelease(adminPin(),seat.no);
+    if(r&&r.ok)toast(seat.name+' 퇴실 처리했어요 ('+seat.no+'번 비움)');else toast('퇴실 처리에 실패했어요 ('+((r&&r.code)||'오류')+')');
+  }catch(e){console.error(e);toast('오류가 났어요');}
+  refresh();
+}
+async function confirmMoveTo(target){
+  const from=moveFrom;moveFrom=null;
+  if(from==null){render();return;}
+  try{const r=await B.adminMoveSeat(adminPin(),from,target.no);
+    if(r&&r.ok)toast(from+'번 → '+target.no+'번으로 이동했어요');else toast('이동에 실패했어요 ('+((r&&r.code)||'오류')+')');
+  }catch(e){console.error(e);toast('오류가 났어요');}
+  refresh();
+}
+function cancelMove(){moveFrom=null;render();}
+
 let resT;
 function show(type,title,sub){
   const r=$('#result');r.className=type;r.innerHTML='<b>'+esc(title)+'</b>'+(sub||'');
@@ -525,7 +601,7 @@ function renderDisplay(){
   const d=$('#display');d.innerHTML='';
   for(let i=0;i<4;i++){const s=document.createElement('span');if(i<input.length){s.className='f';s.textContent='●';}d.appendChild(s);}
 }
-function buildMap(el,clickable){
+function buildMap(el,clickable,adminMenu){
   el.innerHTML='';
   SEATS.forEach(seat=>{
     const d=document.createElement('div');
@@ -540,14 +616,34 @@ function buildMap(el,clickable){
     d.style.gridColumn=seat.col;d.style.gridRow=seat.row;
     if(clickable&&seat.no===hlNo)d.classList.add('hl');
     if(clickable&&((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out')||(mode==='leave'&&isAdminView()&&seat.sid&&seat.status!=='empty'))){d.classList.add('tap');d.onclick=()=>seatTap(seat);}
+    if(adminMenu&&seat.kind==='study'){
+      if(moveFrom!=null){
+        if(seat.no===moveFrom)d.classList.add('moving');
+        else if(seat.status==='empty'){d.classList.add('tap','movetarget');d.onclick=()=>confirmMoveTo(seat);}
+      }else if(seat.sid&&seat.status!=='empty'){
+        d.classList.add('tap');d.onclick=()=>openSeatMenu(seat);
+      }
+    }
     el.appendChild(d);
   });
   const sup=document.createElement('div');sup.className='sup';sup.textContent='감독관 자리';el.appendChild(sup);
 }
 const studySeats=()=>SEATS.filter(s=>s.kind==='study');
+function updateAdminHint(){
+  const lb=$('#tvLabel');if(lb)lb.textContent=isAdminView()?'자리배치도 (눌러서 관리)':'전면 TV 화면 (자리배치도만 표시)';
+  const el=$('#adminMapHint');if(!el)return;
+  if(!isAdminView()){el.classList.remove('show');return;}
+  el.classList.add('show');
+  if(moveFrom!=null){el.innerHTML=moveFrom+'번 학생이 이동할 빈 자리를 선택하세요 <button id="moveCancelBtn">취소</button>';
+    $('#moveCancelBtn').onclick=cancelMove;
+  }else{
+    el.innerHTML='자리를 누르면 이동·외출·복귀·퇴실을 처리할 수 있어요';
+  }
+}
 function render(){
-  buildMap($('#tvMap'),false);
+  buildMap($('#tvMap'),false,isAdminView());
   buildMap($('#padMap'),true);
+  updateAdminHint();
   $('#padMapCap').textContent=(mode==='leave'&&isAdminView())?'퇴실 처리할 학생의 자리를 눌러주세요 (관리자)':CAP[mode];
   $('#hint').textContent=(mode==='leave'&&isAdminView())?ADMIN_LEAVE_HINT:HINTS[mode];
   const as=studySeats();
@@ -557,13 +653,19 @@ function render(){
   $('#outList').innerHTML=outs.length?outs.map(s=>{const sec=(Date.now()-s.outAt)/1000;
     return '<div class="row"><span>'+esc(s.name)+' <small style="color:#9aa4b3">('+s.no+'번)</small></span><span class="t'+(sec>OUT_WARN_SEC?' late':'')+'">'+fmt(sec)+'</span></div>';}).join(''):'<div class="none">외출 중인 학생이 없어요</div>';
 }
-const ACTLBL={in:'입실',leave:'퇴실',admin_leave:'퇴실(관리자)',out:'외출',back:'복귀',reset:''};
+const ACTLBL={in:'입실',leave:'퇴실',admin_leave:'퇴실(관리자)',out:'외출',back:'복귀',move:'자리이동(관리자)',reset:''};
 async function refreshAdmin(){
   const pin=adminPin();
   try{
     const [cnt,logs]=await Promise.all([B.studentCount(pin),B.logs(pin)]);
     $('#rosterCount').textContent=cnt==null?'-':cnt;
-    $('#logList').innerHTML=(logs&&logs.length)?logs.map(l=>'<div class="row log"><span>'+hhmm(l.at)+'  '+esc(l.student_name||'')+' '+(ACTLBL[l.action]||'')+(l.seat_no&&l.action!=='reset'?' ('+l.seat_no+'번)':'')+'</span><span>'+(l.action==='back'&&l.out_seconds!=null?'외출 '+fmt(l.out_seconds):'')+'</span></div>').join(''):'<div class="none">아직 기록이 없어요</div>';
+    $('#logList').innerHTML=(logs&&logs.length)?logs.map(l=>{
+      let seatTxt='';
+      if(l.action==='move')seatTxt=' ('+(l.out_seconds!=null?l.out_seconds+'→':'')+l.seat_no+'번)';
+      else if(l.seat_no&&l.action!=='reset')seatTxt=' ('+l.seat_no+'번)';
+      const sub=(l.action==='back'&&l.out_seconds!=null)?'외출 '+fmt(l.out_seconds):'';
+      return '<div class="row log"><span>'+hhmm(l.at)+'  '+esc(l.student_name||'')+' '+(ACTLBL[l.action]||'')+seatTxt+'</span><span>'+sub+'</span></div>';
+    }).join(''):'<div class="none">아직 기록이 없어요</div>';
   }catch(e){console.error(e);}
 }
 function tick(){if(SEATS.some(s=>s.status==='out'))render();}
@@ -719,14 +821,16 @@ $('#modes').onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=b.d
   document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b));renderDisplay();render();};
 $('#viewSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on',x===b));document.body.className='r-admin v-'+b.dataset.v;
+  moveFrom=null;$('#seatMenu').classList.remove('show');render();
   if(b.dataset.v==='history')refreshHistory();};
 $('#histSearch').onclick=refreshHistory;
 $('#histName').addEventListener('keydown',e=>{if(e.key==='Enter')refreshHistory();});
 $('#histToday').onclick=()=>{$('#histDate').value=todayStr();refreshHistory();};
 $('#chooseCancel').onclick=()=>$('#chooser').classList.remove('show');
+$('#seatMenuCancel').onclick=()=>$('#seatMenu').classList.remove('show');
 $('#gateOk').onclick=tryUnlock;
 $('#gatePin').addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock();});
-$('#btnLock').onclick=()=>{try{sessionStorage.removeItem('admpin');}catch(e){}route();};
+$('#btnLock').onclick=()=>{moveFrom=null;try{sessionStorage.removeItem('admpin');}catch(e){}route();};
 const base=()=>location.href.split('#')[0];
 $('#openPad').onclick=()=>window.open(base()+'#pad','_blank');
 $('#openTv').onclick=()=>window.open(base()+'#tv','_blank');
