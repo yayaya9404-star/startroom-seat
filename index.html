@@ -268,6 +268,8 @@ for(const c of [4,5,6,7])lay(c,7);                       // 29~32 감독관 앞
 const SEAT_NOS=Object.keys(LAYOUT).map(Number);
 /* 데모 모드에서만 쓰는 좌석 종류 (Supabase 연결 시엔 DB의 study_seats.kind 가 기준) */
 const kindOf=n=>(n>=27&&n<=32)?'exam':(n===22?'locked':'study');
+/* 짝(같은 줄 옆자리, 1·2번/3·4번 ...) 상대 좌석 번호. 데모 모드 자리 배정에서 '완전히 빈 짝' 우선 배정에 사용 */
+const pairOf=n=>n%2===1?n+1:n-1;
 
 /* ===== 유틸 ===== */
 const $=s=>document.querySelector(s);
@@ -299,7 +301,11 @@ const LocalBackend=(()=>{
     async checkin(id){const d=load();const st=d.students.find(s=>s.id===id);if(!st)return{ok:false,code:'no_student'};
       const cur=seatOf(d,id);if(cur)return{ok:false,code:'already_in',seat_no:cur.seat_no};
       const free=d.seats.filter(s=>s.kind==='study'&&s.status==='empty');if(!free.length)return{ok:false,code:'full'};
-      const p=free[Math.floor(Math.random()*free.length)];
+      // 짝 상대가 비어있는 자리를 먼저 채우고, 그런 자리가 없을 때만 이미 옆에 학생이 있는 자리를 채움
+      const isEmpty=no=>{const t=d.seats.find(s=>s.seat_no===no);return t?t.status==='empty':true;};
+      const openPair=free.filter(s=>isEmpty(pairOf(s.seat_no)));
+      const pool=openPair.length?openPair:free;
+      const p=pool[Math.floor(Math.random()*pool.length)];
       Object.assign(p,{student_id:id,student_name:st.name,grade_class:st.grade_class,status:'in',out_at:null});
       addLog(d,{student_name:st.name,seat_no:p.seat_no,action:'in'});save(d);return{ok:true,code:'ok',seat_no:p.seat_no};},
     async checkout(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
