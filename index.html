@@ -41,6 +41,19 @@ body.r-admin.v-pad .tvwrap, body.r-admin.v-pad .adminside{display:none}
 body.r-admin.v-tv .padwrap{display:none}
 body.r-admin.v-pad .padwrap{width:520px}
 body.r-admin.v-tv .tvwrap{max-width:1300px}
+.historywrap{display:none;width:100%}
+body.r-admin.v-history .padwrap, body.r-admin.v-history .tvwrap, body.r-admin.v-history .adminside{display:none}
+body.r-admin.v-history .historywrap{display:block}
+.histfilter{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.histfilter input[type=date],.histfilter input[type=text]{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:14px}
+.histfilter input[type=text]{flex:1 1 180px;min-width:140px}
+table.histtbl{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:14px}
+table.histtbl th,table.histtbl td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line)}
+table.histtbl th{background:#f5f7fa;color:var(--mute);font-weight:600;font-size:12.5px}
+table.histtbl tr:last-child td{border-bottom:0}
+table.histtbl td{font-variant-numeric:tabular-nums}
+table.histtbl .prog{color:var(--out);font-weight:600}
+table.histtbl .total{font-weight:700;color:var(--primary)}
 /* 학생용 패드: 출결 + 자리배치만 */
 body.r-pad header.top, body.r-pad .tvwrap, body.r-pad .adminside, body.r-pad .label, body.r-pad .demo{display:none}
 body.r-pad .stage{padding:16px;justify-content:center}
@@ -158,6 +171,7 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
     <button data-v="both" class="on">나란히 보기</button>
     <button data-v="pad">패드 화면</button>
     <button data-v="tv">TV 화면</button>
+    <button data-v="history">학습시간 기록</button>
   </div>
   <button class="ghost" id="openPad">패드용 창 열기</button>
   <button class="ghost" id="openTv">TV용 창 열기</button>
@@ -223,6 +237,19 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
     <div class="adm"><h4>최근 기록</h4><div id="logList"></div></div>
     <div class="adm note">
       학생용 주소<br>· 패드: 주소 끝에 <b>#pad</b><br>· TV: 주소 끝에 <b>#tv</b><br>· 관리자: 주소 끝 없음 (비밀번호 필요)
+    </div>
+  </div>
+
+  <div class="historywrap">
+    <div class="label">학습시간 기록 (관리자 전용)</div>
+    <div class="adm">
+      <div class="histfilter">
+        <input type="date" id="histDate">
+        <input type="text" id="histName" placeholder="학생 이름 검색 (비우면 전체)">
+        <button class="ghost primary" id="histSearch">검색</button>
+        <button class="ghost" id="histToday">오늘</button>
+      </div>
+      <div id="histTableWrap"><div class="none">날짜를 고르고 검색해주세요</div></div>
     </div>
   </div>
 </div>
@@ -294,6 +321,34 @@ const LocalBackend=(()=>{
   function save(d){try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}}
   function addLog(d,o){d.log.unshift(Object.assign({at:Date.now()},o));d.log.length=Math.min(d.log.length,200);}
   const seatOf=(d,id)=>d.seats.find(s=>s.student_id===id);
+  /* 입실~퇴실 기록을 세션 단위(입실시간/퇴실시간/외출시간/총 학습시간)로 재구성. Supabase의 study_admin_sessions() 함수와 같은 규칙 */
+  function buildSessions(log,dateStr,nameFilter){
+    const rows=log.slice().reverse(); // 오래된 순
+    const st={};const out=[];
+    const finish=(s,checkoutAt)=>({student_name:s.name,seat_no:s.seat,checkin_at:s.inAt,checkout_at:checkoutAt,
+      out_seconds:Math.round(s.outMs/1000),
+      study_seconds:checkoutAt!=null?Math.max(0,Math.round((checkoutAt-s.inAt)/1000-s.outMs/1000)):null,
+      in_progress:checkoutAt==null});
+    for(const r of rows){
+      if(!['in','out','back','leave','admin_leave'].includes(r.action))continue;
+      const key=r.student_id||r.student_name;if(!key)continue;
+      let cur=st[key];
+      if(r.action==='in'){
+        if(cur&&cur.open)out.push(finish(cur,null));
+        st[key]=cur={name:r.student_name,seat:r.seat_no,inAt:r.at,outMs:0,open:true};
+      }else if(r.action==='back'){
+        if(cur&&cur.open)cur.outMs+=(r.out_seconds||0)*1000;
+      }else if((r.action==='leave'||r.action==='admin_leave')&&cur&&cur.open){
+        out.push(finish(cur,r.at));cur.open=false;
+      }
+    }
+    Object.values(st).forEach(s=>{if(s.open)out.push(finish(s,null));});
+    return out.filter(s=>{
+      if(dateStr){const dd=new Date(s.checkin_at);const local=dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0')+'-'+String(dd.getDate()).padStart(2,'0');if(local!==dateStr)return false;}
+      if(nameFilter&&!(s.student_name||'').includes(nameFilter))return false;
+      return true;
+    }).sort((a,b)=>b.checkin_at-a.checkin_at);
+  }
   return{
     kind:'local',
     async seats(){return load().seats;},
@@ -307,23 +362,24 @@ const LocalBackend=(()=>{
       const pool=openPair.length?openPair:free;
       const p=pool[Math.floor(Math.random()*pool.length)];
       Object.assign(p,{student_id:id,student_name:st.name,grade_class:st.grade_class,status:'in',out_at:null});
-      addLog(d,{student_name:st.name,seat_no:p.seat_no,action:'in'});save(d);return{ok:true,code:'ok',seat_no:p.seat_no};},
+      addLog(d,{student_id:id,student_name:st.name,seat_no:p.seat_no,action:'in'});save(d);return{ok:true,code:'ok',seat_no:p.seat_no};},
     async checkout(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
-      addLog(d,{student_name:cur.student_name,seat_no:cur.seat_no,action:'leave'});const n=cur.seat_no;
+      addLog(d,{student_id:id,student_name:cur.student_name,seat_no:cur.seat_no,action:'leave'});const n=cur.seat_no;
       Object.assign(cur,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});save(d);return{ok:true,code:'ok',seat_no:n};},
     async goOut(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
       if(cur.status==='out')return{ok:false,code:'already_out',seat_no:cur.seat_no};
-      cur.status='out';cur.out_at=Date.now();addLog(d,{student_name:cur.student_name,seat_no:cur.seat_no,action:'out'});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no};},
+      cur.status='out';cur.out_at=Date.now();addLog(d,{student_id:id,student_name:cur.student_name,seat_no:cur.seat_no,action:'out'});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no};},
     async comeBack(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
       if(cur.status!=='out')return{ok:false,code:'not_out',seat_no:cur.seat_no};
       const secs=Math.round((Date.now()-cur.out_at)/1000);cur.status='in';cur.out_at=null;
-      addLog(d,{student_name:cur.student_name,seat_no:cur.seat_no,action:'back',out_seconds:secs});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no,secs};},
+      addLog(d,{student_id:id,student_name:cur.student_name,seat_no:cur.seat_no,action:'back',out_seconds:secs});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no,secs};},
     async adminRelease(pin,no){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();const cur=d.seats.find(s=>s.seat_no===no);
-      if(!cur||!cur.student_id)return{ok:false,code:'not_in'};addLog(d,{student_name:cur.student_name,seat_no:no,action:'admin_leave'});
+      if(!cur||!cur.student_id)return{ok:false,code:'not_in'};addLog(d,{student_id:cur.student_id,student_name:cur.student_name,seat_no:no,action:'admin_leave'});
       Object.assign(cur,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});save(d);return{ok:true,code:'ok',seat_no:no};},
     async adminCheck(pin){return pin===DEMO_PIN;},
     async studentCount(){return load().students.length;},
     async logs(){return load().log.slice(0,30);},
+    async sessions(pin,date,name){if(pin!==DEMO_PIN)return[];return buildSessions(load().log,date,name);},
     async replaceStudents(pin,rows){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
       d.students=rows.map(r=>({id:uid(),name:r.name,grade_class:r.grade_class||'',last4:r.last4}));
       d.seats.forEach(s=>Object.assign(s,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null}));
@@ -356,6 +412,7 @@ const RemoteBackend=(()=>{
     adminCheck:pin=>rpc('study_admin_check',{p_pin:pin}),
     studentCount:pin=>rpc('study_admin_student_count',{p_pin:pin}),
     logs:pin=>rpc('study_admin_logs',{p_pin:pin,p_limit:30}),
+    sessions:(pin,date,name)=>rpc('study_admin_sessions',{p_pin:pin,p_date:date||null,p_name:name||null}),
     replaceStudents:(pin,rows)=>rpc('study_admin_replace_students',{p_pin:pin,p_rows:rows}),
     resetAll:pin=>rpc('study_admin_reset',{p_pin:pin}),
     subscribe(cb){sb.channel('study_seats_live').on('postgres_changes',{event:'*',schema:'public',table:'study_seats'},cb).subscribe();}
@@ -510,6 +567,31 @@ async function refreshAdmin(){
 }
 function tick(){if(SEATS.some(s=>s.status==='out'))render();}
 
+/* ===== 학습시간 기록 탭 ===== */
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+function fmtHM(sec){if(sec==null)return '-';sec=Math.max(0,Math.round(sec));
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h>0?h+'시간 '+m+'분':m+'분';}
+function renderHistTable(rows){
+  const wrap=$('#histTableWrap');
+  if(!rows||!rows.length){wrap.innerHTML='<div class="none">기록이 없어요</div>';return;}
+  const toMs=v=>v==null?null:(typeof v==='number'?v:Date.parse(v));
+  wrap.innerHTML='<table class="histtbl"><tr><th>이름</th><th>자리</th><th>입실 시간</th><th>퇴실 시간</th><th>외출 시간</th><th>총 학습시간</th></tr>'+
+    rows.map(r=>{const inAt=toMs(r.checkin_at),outAt=toMs(r.checkout_at);
+      return '<tr><td>'+esc(r.student_name||'')+'</td><td>'+(r.seat_no||'-')+'번</td>'+
+        '<td>'+(inAt?hhmm(inAt):'-')+'</td>'+
+        '<td>'+(outAt?hhmm(outAt):'<span class="prog">재실중</span>')+'</td>'+
+        '<td>'+fmtHM(r.out_seconds)+'</td>'+
+        '<td class="total">'+(r.study_seconds!=null?fmtHM(r.study_seconds):'-')+'</td></tr>';}).join('')+
+    '</table>';
+}
+async function refreshHistory(){
+  const pin=adminPin();if(!pin)return;
+  const date=$('#histDate').value;const name=$('#histName').value.trim();
+  $('#histTableWrap').innerHTML='<div class="none">불러오는 중...</div>';
+  try{const rows=await B.sessions(pin,date,name);renderHistTable(rows);}
+  catch(e){console.error(e);$('#histTableWrap').innerHTML='<div class="err">불러오지 못했어요</div>';}
+}
+
 /* =====================================================================
    명단 업로드 (CSV / 엑셀)
    ===================================================================== */
@@ -608,7 +690,11 @@ const keys=$('#keys');
 $('#modes').onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=b.dataset.m;input='';
   document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b));renderDisplay();render();};
 $('#viewSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
-  document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on',x===b));document.body.className='r-admin v-'+b.dataset.v;};
+  document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on',x===b));document.body.className='r-admin v-'+b.dataset.v;
+  if(b.dataset.v==='history')refreshHistory();};
+$('#histSearch').onclick=refreshHistory;
+$('#histName').addEventListener('keydown',e=>{if(e.key==='Enter')refreshHistory();});
+$('#histToday').onclick=()=>{$('#histDate').value=todayStr();refreshHistory();};
 $('#chooseCancel').onclick=()=>$('#chooser').classList.remove('show');
 $('#gateOk').onclick=tryUnlock;
 $('#gatePin').addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock();});
@@ -641,6 +727,7 @@ async function boot(){
     B.find('1234').then(()=>{const d=JSON.parse(localStorage.getItem('studyroom-local-v1')||'{}');
       if(d.students)$('#demoHint').textContent='시연용 뒷번호: '+[...new Set(d.students.map(s=>s.last4))].slice(0,9).join(' · ');});}
   renderDisplay();
+  $('#histDate').value=todayStr();
   B.subscribe(()=>refresh());
   await refresh();
   route();
