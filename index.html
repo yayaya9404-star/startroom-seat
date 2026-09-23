@@ -54,6 +54,7 @@ table.histtbl tr:last-child td{border-bottom:0}
 table.histtbl td{font-variant-numeric:tabular-nums}
 table.histtbl .prog{color:var(--out);font-weight:600}
 table.histtbl .total{font-weight:700;color:var(--primary)}
+table.histtbl .cnt{font-weight:400;font-size:11.5px;color:var(--mute)}
 /* 학생용 패드: 출결 + 자리배치만 */
 body.r-pad header.top, body.r-pad .tvwrap, body.r-pad .adminside, body.r-pad .label, body.r-pad .demo{display:none}
 body.r-pad .stage{padding:16px;justify-content:center}
@@ -325,7 +326,7 @@ const LocalBackend=(()=>{
   function buildSessions(log,dateStr,nameFilter){
     const rows=log.slice().reverse(); // 오래된 순
     const st={};const out=[];
-    const finish=(s,checkoutAt)=>({student_name:s.name,seat_no:s.seat,checkin_at:s.inAt,checkout_at:checkoutAt,
+    const finish=(s,checkoutAt)=>({student_id:s.id,student_name:s.name,seat_no:s.seat,checkin_at:s.inAt,checkout_at:checkoutAt,
       out_seconds:Math.round(s.outMs/1000),
       study_seconds:checkoutAt!=null?Math.max(0,Math.round((checkoutAt-s.inAt)/1000-s.outMs/1000)):null,
       in_progress:checkoutAt==null});
@@ -335,7 +336,7 @@ const LocalBackend=(()=>{
       let cur=st[key];
       if(r.action==='in'){
         if(cur&&cur.open)out.push(finish(cur,null));
-        st[key]=cur={name:r.student_name,seat:r.seat_no,inAt:r.at,outMs:0,open:true};
+        st[key]=cur={id:r.student_id,name:r.student_name,seat:r.seat_no,inAt:r.at,outMs:0,open:true};
       }else if(r.action==='back'){
         if(cur&&cur.open)cur.outMs+=(r.out_seconds||0)*1000;
       }else if((r.action==='leave'||r.action==='admin_leave')&&cur&&cur.open){
@@ -571,17 +572,44 @@ function tick(){if(SEATS.some(s=>s.status==='out'))render();}
 const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 function fmtHM(sec){if(sec==null)return '-';sec=Math.max(0,Math.round(sec));
   const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h>0?h+'시간 '+m+'분':m+'분';}
+const histMs=v=>v==null?null:(typeof v==='number'?v:Date.parse(v));
+/* 같은 학생(번호+이름)이 같은 날 여러 번 입/퇴실했으면(수업 전/후 자습 등) 한 그룹으로 묶어서
+   입실·퇴실 시간은 각각 줄바꿈으로 보여주되, 외출시간/총 학습시간은 그 날 전체 합계로 보여줌 */
+function groupHistSessions(rows){
+  const dayKey=ms=>{if(ms==null)return '';const d=new Date(ms);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  const groups=new Map();
+  rows.forEach(r=>{
+    const inMs=histMs(r.checkin_at);
+    const key=(r.student_id||r.student_name||'')+'|'+dayKey(inMs);
+    let g=groups.get(key);
+    if(!g){g={student_name:r.student_name,sessions:[],maxIn:inMs};groups.set(key,g);}
+    g.sessions.push(r);
+    if(inMs!=null&&(g.maxIn==null||inMs>g.maxIn))g.maxIn=inMs;
+  });
+  return[...groups.values()].sort((a,b)=>(b.maxIn||0)-(a.maxIn||0)).map(g=>{
+    g.sessions.sort((a,b)=>(histMs(a.checkin_at)||0)-(histMs(b.checkin_at)||0));
+    return g;
+  });
+}
 function renderHistTable(rows){
   const wrap=$('#histTableWrap');
   if(!rows||!rows.length){wrap.innerHTML='<div class="none">기록이 없어요</div>';return;}
-  const toMs=v=>v==null?null:(typeof v==='number'?v:Date.parse(v));
+  const groups=groupHistSessions(rows);
   wrap.innerHTML='<table class="histtbl"><tr><th>이름</th><th>자리</th><th>입실 시간</th><th>퇴실 시간</th><th>외출 시간</th><th>총 학습시간</th></tr>'+
-    rows.map(r=>{const inAt=toMs(r.checkin_at),outAt=toMs(r.checkout_at);
-      return '<tr><td>'+esc(r.student_name||'')+'</td><td>'+(r.seat_no||'-')+'번</td>'+
-        '<td>'+(inAt?hhmm(inAt):'-')+'</td>'+
-        '<td>'+(outAt?hhmm(outAt):'<span class="prog">재실중</span>')+'</td>'+
-        '<td>'+fmtHM(r.out_seconds)+'</td>'+
-        '<td class="total">'+(r.study_seconds!=null?fmtHM(r.study_seconds):'-')+'</td></tr>';}).join('')+
+    groups.map(g=>{
+      const seats=g.sessions.map(s=>(s.seat_no||'-')+'번').join('<br>');
+      const ins=g.sessions.map(s=>{const t=histMs(s.checkin_at);return t?hhmm(t):'-';}).join('<br>');
+      const outs=g.sessions.map(s=>{const t=histMs(s.checkout_at);return t?hhmm(t):'<span class="prog">재실중</span>';}).join('<br>');
+      const outSum=g.sessions.reduce((a,s)=>a+(s.out_seconds||0),0);
+      const studyDone=g.sessions.filter(s=>s.study_seconds!=null).map(s=>s.study_seconds);
+      const studySum=studyDone.length?studyDone.reduce((a,b)=>a+b,0):null;
+      const anyProgress=g.sessions.some(s=>s.in_progress);
+      const totalTxt=(studySum!=null?fmtHM(studySum):'-')+(anyProgress?' <span class="prog">(재실중)</span>':'')+
+        (g.sessions.length>1?'<div class="cnt">'+g.sessions.length+'건 합계</div>':'');
+      return '<tr><td>'+esc(g.student_name||'')+'</td><td>'+seats+'</td>'+
+        '<td>'+ins+'</td><td>'+outs+'</td>'+
+        '<td>'+fmtHM(outSum)+'</td>'+
+        '<td class="total">'+totalTxt+'</td></tr>';}).join('')+
     '</table>';
 }
 async function refreshHistory(){
