@@ -54,6 +54,22 @@ body.r-admin.v-both .tvwrap{max-width:1300px}
 .historywrap{display:none;width:100%;max-width:1180px;margin:0 auto}
 body.r-admin.v-history .padwrap, body.r-admin.v-history .tvwrap, body.r-admin.v-history .adminside{display:none}
 body.r-admin.v-history .historywrap{display:block}
+.rankctl{display:flex;gap:8px;align-items:center}
+.rankctl input[type=month]{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px;background:#fff}
+.rankgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.rankgrid{grid-template-columns:1fr}}
+.rankcol{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:12px}
+.rankcol h5{font-size:12.5px;color:var(--mute);font-weight:600;margin:0 0 8px}
+.rankrow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.rankrow:last-child{border-bottom:0}
+.rankrow .rk{width:26px;height:26px;border-radius:50%;background:#eef1f6;color:var(--mute);font-weight:700;font-size:12.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rankrow.r1 .rk{background:#ffd75e;color:#7a5b00}
+.rankrow.r2 .rk{background:#dfe4ea;color:#4a5568}
+.rankrow.r3 .rk{background:#e9c9a5;color:#7a4a1f}
+.rankrow .rn{flex:1;min-width:0}
+.rankrow .rn b{font-size:13.5px}
+.rankrow .rn span{display:block;color:var(--mute);font-size:11px}
+.rankrow .rv{font-weight:700;color:var(--primary);font-size:13.5px;flex-shrink:0;white-space:nowrap}
 .histsum{margin-bottom:16px}
 .histsum:empty{display:none;margin:0}
 .histsum-title{font-size:13px;color:var(--mute);margin-bottom:8px;font-weight:600}
@@ -195,6 +211,17 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
 #preview th{color:var(--mute);font-weight:600}
 #preview .warn{color:#b36200}
 #preview .err{color:var(--danger)}
+.ghost:disabled{opacity:.45;cursor:not-allowed}
+.rosterctl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.rosterctl input[type=text]{flex:1 1 120px;min-width:90px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit}
+.rosterctl .cnt{font-size:12px;color:var(--mute)}
+.rosterlist{max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:8px;background:#fff}
+.rosterlist .ritem{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);font-size:13px}
+.rosterlist .ritem:last-child{border-bottom:0}
+.rosterlist .ritem label{flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;min-width:0}
+.rosterlist .ritem label span.rname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rosterlist .ritem .gc{color:var(--mute);font-size:11.5px;flex-shrink:0}
+.rosterlist .ritem .l4{color:var(--mute);font-size:11.5px;margin-left:auto;flex-shrink:0}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1c2430;color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:40;max-width:90vw}
 </style>
 </head>
@@ -268,6 +295,21 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
       </div>
       <div class="note" style="margin-top:8px">열 이름 예: 이름 / 학년·반 / 연락처<br>연락처는 <b>뒤 4자리만</b> 뽑아 저장하고, 전체 번호는 저장하지 않아요.</div>
       <div id="preview"></div>
+      <div class="upl" style="margin-top:10px">
+        <button class="ghost" id="btnRosterList">명단 보기 · 선택 삭제</button>
+      </div>
+      <div id="rosterListWrap" style="display:none">
+        <div class="rosterctl">
+          <input type="text" id="rosterSearch" placeholder="이름 검색">
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer"><input type="checkbox" id="rosterSelAll">전체선택</label>
+          <span class="cnt" id="rosterSelCount">0명 선택</span>
+        </div>
+        <div class="rosterlist" id="rosterListItems"></div>
+        <div class="upl" style="margin-top:8px">
+          <button class="ghost danger" id="btnRosterDelete" disabled>선택 삭제</button>
+        </div>
+        <div class="note" style="margin-top:6px">삭제해도 <b>기록(이력)에는 남지 않아요</b>. 잘못 등록된 학생을 지울 때만 사용하세요 — 되돌릴 수 없습니다.</div>
+      </div>
     </div>
     <div class="adm"><h4>외출 중</h4><div id="outList"></div></div>
     <div class="adm"><h4>최근 기록</h4><div id="logList"></div></div>
@@ -278,6 +320,10 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
 
   <div class="historywrap">
     <div class="label">학습시간 기록 (관리자 전용)</div>
+    <div class="adm">
+      <h4>월별 랭킹<span class="rankctl"><input type="month" id="rankMonth"><button class="ghost primary" id="rankSearch">조회</button></span></h4>
+      <div id="rankResult"></div>
+    </div>
     <div class="adm">
       <div id="histSummary" class="histsum"></div>
       <div class="histfilter">
@@ -446,10 +492,49 @@ const LocalBackend=(()=>{
     async studentCount(){return load().students.length;},
     async logs(){return load().log.slice(0,30);},
     async sessions(pin,date,name){if(pin!==DEMO_PIN)return[];const d=load();return buildSessions(d.log,d.students,date,name);},
+    async monthlyRanking(pin,month){
+      if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};
+      if(!/^\d{4}-\d{2}$/.test(month||''))return{ok:false,code:'bad_month'};
+      const d=load();
+      const sessions=buildSessions(d.log,d.students,null,null);
+      const byStudent=new Map();
+      sessions.forEach(s=>{
+        if(s.checkin_at==null)return;
+        const dt=new Date(s.checkin_at);
+        const ym=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+        if(ym!==month)return;
+        const key=s.student_id||s.student_name;if(!key)return;
+        let g=byStudent.get(key);
+        if(!g){g={student_id:s.student_id,name:s.student_name,grade_class:s.grade_class,days:new Set(),total_secs:0};byStudent.set(key,g);}
+        g.days.add(dt.getFullYear()+'-'+dt.getMonth()+'-'+dt.getDate());
+        g.total_secs+=(s.study_seconds||0);
+      });
+      const arr=[...byStudent.values()].map(g=>({student_id:g.student_id,name:g.name,grade_class:g.grade_class,days:g.days.size,total_secs:g.total_secs}));
+      const rankBy=key=>{
+        const sorted=arr.filter(x=>x[key]>0).sort((a,b)=>b[key]-a[key]);
+        const out=[];let rnk=0,lastVal=null;
+        for(const item of sorted){
+          if(item[key]!==lastVal){rnk++;lastVal=item[key];}
+          if(rnk>3)break;
+          out.push(Object.assign({rank:rnk},item));
+        }
+        return out;
+      };
+      return{ok:true,code:'ok',month,attendance:rankBy('days'),study_time:rankBy('total_secs')};
+    },
     async replaceStudents(pin,rows){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
       d.students=rows.map(r=>({id:uid(),name:r.name,grade_class:r.grade_class||'',last4:r.last4}));
       d.seats.forEach(s=>Object.assign(s,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null}));
       addLog(d,{student_name:'명단 교체 '+d.students.length+'명',action:'reset'});save(d);return{ok:true,code:'ok',count:d.students.length};},
+    async students(pin){if(pin!==DEMO_PIN)return[];const d=load();
+      return d.students.map(({id,name,grade_class,last4})=>({id,name,grade_class,last4})).sort((a,b)=>a.name.localeCompare(b.name,'ko'));},
+    async deleteStudents(pin,ids){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
+      const idSet=new Set(ids||[]);if(!idSet.size)return{ok:false,code:'no_ids'};
+      // 삭제 대상이 앉아있던 자리는 비우되, 기록(log)에는 남기지 않음 (잘못 등록된 학생을 지우는 용도라 의도적으로 로그 없음)
+      d.seats.forEach(s=>{if(s.student_id&&idSet.has(s.student_id))Object.assign(s,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});});
+      const before=d.students.length;
+      d.students=d.students.filter(s=>!idSet.has(s.id));
+      save(d);return{ok:true,code:'ok',deleted:before-d.students.length};},
     async resetAll(pin){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
       d.seats.forEach(s=>Object.assign(s,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null}));
       addLog(d,{student_name:'전체 초기화',action:'reset'});save(d);return{ok:true,code:'ok'};},
@@ -480,7 +565,10 @@ const RemoteBackend=(()=>{
     studentCount:pin=>rpc('study_admin_student_count',{p_pin:pin}),
     logs:pin=>rpc('study_admin_logs',{p_pin:pin,p_limit:30}),
     sessions:(pin,date,name)=>rpc('study_admin_sessions',{p_pin:pin,p_date:date||null,p_name:name||null}),
+    monthlyRanking:(pin,month)=>rpc('study_admin_monthly_ranking',{p_pin:pin,p_month:month}),
     replaceStudents:(pin,rows)=>rpc('study_admin_replace_students',{p_pin:pin,p_rows:rows}),
+    students:pin=>rpc('study_admin_students',{p_pin:pin}),
+    deleteStudents:(pin,ids)=>rpc('study_admin_delete_students',{p_pin:pin,p_ids:ids}),
     resetAll:pin=>rpc('study_admin_reset',{p_pin:pin}),
     subscribe(cb){sb.channel('study_seats_live').on('postgres_changes',{event:'*',schema:'public',table:'study_seats'},cb).subscribe();}
   };
@@ -801,6 +889,32 @@ async function refreshHistory(){
   catch(e){console.error(e);$('#histTableWrap').innerHTML='<div class="err">불러오지 못했어요</div>';}
 }
 
+/* ===== 월별 랭킹 (출석 TOP3 / 학습시간 TOP3) ===== */
+function rankRowsHtml(list,valueFn){
+  if(!list.length)return '<div class="none" style="padding:4px 0">기록이 없어요</div>';
+  return list.map(item=>
+    '<div class="rankrow r'+item.rank+'"><span class="rk">'+item.rank+'</span>'+
+    '<span class="rn"><b>'+esc(item.name||'')+'</b>'+(item.grade_class?'<span>'+esc(item.grade_class)+'</span>':'')+'</span>'+
+    '<span class="rv">'+valueFn(item)+'</span></div>').join('');
+}
+function renderRanking(r){
+  $('#rankResult').innerHTML='<div class="rankgrid">'+
+    '<div class="rankcol"><h5>📅 출석 TOP 3 (출석일수)</h5>'+rankRowsHtml(r.attendance,x=>x.days+'일')+'</div>'+
+    '<div class="rankcol"><h5>⏱ 학습시간 TOP 3</h5>'+rankRowsHtml(r.study_time,x=>fmtHM(x.total_secs))+'</div>'+
+    '</div>';
+}
+async function refreshRanking(){
+  const pin=adminPin();if(!pin)return;
+  const month=$('#rankMonth').value;
+  if(!month){$('#rankResult').innerHTML='<div class="none">월을 선택해주세요</div>';return;}
+  $('#rankResult').innerHTML='<div class="none">불러오는 중...</div>';
+  try{
+    const r=await B.monthlyRanking(pin,month);
+    if(!r||!r.ok){$('#rankResult').innerHTML='<div class="err">불러오지 못했어요</div>';return;}
+    renderRanking(r);
+  }catch(e){console.error(e);$('#rankResult').innerHTML='<div class="err">불러오지 못했어요</div>';}
+}
+
 /* =====================================================================
    명단 업로드 (CSV / 엑셀)
    ===================================================================== */
@@ -867,6 +981,31 @@ function showPreview(res){
   };
 }
 
+/* ===== 학생 명단 보기 · 선택 삭제 (잘못 등록된 학생 정리용, 이력에 남지 않음) ===== */
+let rosterAll=[],rosterSelected=new Set();
+function rosterVisible(){
+  const q=$('#rosterSearch').value.trim();
+  return q?rosterAll.filter(s=>(s.name||'').includes(q)):rosterAll;
+}
+function renderRosterList(){
+  const list=rosterVisible();
+  const wrap=$('#rosterListItems');
+  wrap.innerHTML=list.length?list.map(s=>
+    '<div class="ritem"><label><input type="checkbox" class="rchk" data-id="'+esc(s.id)+'" '+(rosterSelected.has(s.id)?'checked':'')+'>'+
+    '<span class="rname">'+esc(s.name)+'</span>'+(s.grade_class?'<span class="gc">'+esc(s.grade_class)+'</span>':'')+'</label>'+
+    '<span class="l4">'+esc(s.last4||'')+'</span></div>').join('')
+    :'<div class="none" style="padding:10px 4px">학생이 없어요</div>';
+  $('#rosterSelCount').textContent=rosterSelected.size+'명 선택';
+  $('#btnRosterDelete').disabled=rosterSelected.size===0;
+  $('#rosterSelAll').checked=list.length>0&&list.every(s=>rosterSelected.has(s.id));
+}
+async function loadRosterList(){
+  const pin=adminPin();if(!pin)return;
+  try{rosterAll=await B.students(pin);}catch(e){console.error(e);rosterAll=[];}
+  rosterSelected.clear();
+  renderRosterList();
+}
+
 /* =====================================================================
    화면 잠금/라우팅
    ===================================================================== */
@@ -901,10 +1040,11 @@ $('#modes').onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=b.d
 $('#viewSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on',x===b));document.body.className='r-admin v-'+b.dataset.v;
   moveFrom=null;$('#seatMenu').classList.remove('show');render();
-  if(b.dataset.v==='history')refreshHistory();};
+  if(b.dataset.v==='history'){refreshHistory();refreshRanking();}};
 $('#histSearch').onclick=refreshHistory;
 $('#histName').addEventListener('keydown',e=>{if(e.key==='Enter')refreshHistory();});
 $('#histToday').onclick=()=>{$('#histDate').value=todayStr();refreshHistory();};
+$('#rankSearch').onclick=refreshRanking;
 $('#histProgOnly').onchange=()=>{histProgOnly=$('#histProgOnly').checked;applyHistView();};
 $('#histSort').onchange=()=>{histSort=$('#histSort').value;applyHistView();};
 $('#chooseCancel').onclick=()=>$('#chooser').classList.remove('show');
@@ -925,6 +1065,35 @@ $('#fileIn').onchange=async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
   try{showPreview(buildRoster(await readTable(f)));}catch(err){console.error(err);$('#preview').innerHTML='<div class="err">'+esc(err.message||'파일을 읽지 못했어요')+'</div>';}
 };
+$('#btnRosterList').onclick=async()=>{
+  const wrap=$('#rosterListWrap');const show=wrap.style.display==='none';
+  wrap.style.display=show?'':'none';
+  $('#btnRosterList').textContent=show?'명단 접기':'명단 보기 · 선택 삭제';
+  if(show)await loadRosterList();
+};
+$('#rosterSearch').addEventListener('input',renderRosterList);
+$('#rosterListItems').addEventListener('change',e=>{
+  const t=e.target;if(!t.classList.contains('rchk'))return;
+  if(t.checked)rosterSelected.add(t.dataset.id);else rosterSelected.delete(t.dataset.id);
+  $('#rosterSelCount').textContent=rosterSelected.size+'명 선택';
+  $('#btnRosterDelete').disabled=rosterSelected.size===0;
+  $('#rosterSelAll').checked=rosterVisible().every(s=>rosterSelected.has(s.id));
+});
+$('#rosterSelAll').onchange=()=>{
+  const list=rosterVisible();
+  if($('#rosterSelAll').checked)list.forEach(s=>rosterSelected.add(s.id));
+  else list.forEach(s=>rosterSelected.delete(s.id));
+  renderRosterList();
+};
+$('#btnRosterDelete').onclick=async()=>{
+  const ids=[...rosterSelected];if(!ids.length)return;
+  if(!confirm(ids.length+'명을 삭제할까요?\n기록(이력)에는 남지 않고, 되돌릴 수 없어요.'))return;
+  try{
+    const r=await B.deleteStudents(adminPin(),ids);
+    if(r&&r.ok){toast(ids.length+'명 삭제했어요');await loadRosterList();await refresh();await refreshAdmin();}
+    else toast('삭제에 실패했어요');
+  }catch(e){console.error(e);toast('오류가 났어요');}
+};
 window.addEventListener('hashchange',route);
 
 /* ===== 시작 ===== */
@@ -941,6 +1110,7 @@ async function boot(){
       if(d.students)$('#demoHint').textContent='시연용 뒷번호: '+[...new Set(d.students.map(s=>s.last4))].slice(0,9).join(' · ');});}
   renderDisplay();
   $('#histDate').value=todayStr();
+  $('#rankMonth').value=todayStr().slice(0,7);
   B.subscribe(()=>refresh());
   await refresh();
   route();
