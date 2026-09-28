@@ -117,6 +117,21 @@ body.r-tv .legend{display:none}
 /* 감독관 자리가 위로 오도록 180도 회전 (TV 화면 전용). 글자는 다시 반대로 돌려 바로 보이게 함 */
 body.r-tv .map{transform:rotate(180deg)}
 body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
+/* TV 화면 양옆 빈 공간에 월별 랭킹(왼쪽 출석·오른쪽 학습시간) — 실제 #tv 화면과 관리자의 'TV 화면' 미리보기 탭에만 표시 */
+.tvrank{display:none;flex-direction:column;gap:10px;width:210px;flex:0 0 210px}
+body.r-tv .tvrank, body.r-admin.v-tv .tvrank{display:flex}
+@media(max-width:1150px){.tvrank{display:none !important}}
+.tvrankcard{background:var(--tv-card);border:1px solid var(--tv-line);border-radius:14px;padding:14px 16px;color:var(--tv-ink);box-shadow:0 8px 28px rgba(20,30,50,.10)}
+.tvrankcard h6{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--tv-mute);letter-spacing:.02em}
+.tvrankcard .trow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--tv-line)}
+.tvrankcard .trow:last-child{border-bottom:0}
+.tvrankcard .trk{width:24px;height:24px;border-radius:50%;background:#eef1f6;color:var(--tv-mute);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tvrankcard .trow.r1 .trk{background:#ffd75e;color:#7a5b00}
+.tvrankcard .trow.r2 .trk{background:#dfe4ea;color:#4a5568}
+.tvrankcard .trow.r3 .trk{background:#e9c9a5;color:#7a4a1f}
+.tvrankcard .tnm{flex:1;min-width:0;font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tvrankcard .tval{font-size:12px;color:var(--primary);font-weight:700;flex-shrink:0}
+.tvrankcard .none{font-size:12.5px;color:var(--tv-mute);padding:4px 0}
 
 /* ---------- PAD ---------- */
 .pad{background:var(--card);border-radius:22px;border:8px solid #2b3340;padding:16px;box-shadow:0 8px 28px rgba(20,30,50,.15);display:grid;grid-template-columns:1fr;gap:16px}
@@ -263,6 +278,7 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
     </div>
   </div>
 
+  <div id="tvRankAtt" class="tvrank"></div>
   <div class="tvwrap">
     <div class="label" id="tvLabel">전면 TV 화면 (자리배치도만 표시)</div>
     <div class="adminhint" id="adminMapHint"></div>
@@ -276,6 +292,7 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
       </div>
     </div>
   </div>
+  <div id="tvRankTime" class="tvrank"></div>
 
   <div class="adminside">
     <div class="label">관리자 전용 (학생 화면에는 안 나옴)</div>
@@ -290,13 +307,7 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
       <h4>학생 명단</h4>
       <div class="roster-info">등록 <b id="rosterCount">-</b>명</div>
       <div class="upl">
-        <button class="ghost primary" id="btnPick">CSV·엑셀 업로드</button>
-        <input type="file" id="fileIn" accept=".csv,.xlsx,.xls,.txt">
-      </div>
-      <div class="note" style="margin-top:8px">열 이름 예: 이름 / 학년·반 / 연락처<br>연락처는 <b>뒤 4자리만</b> 뽑아 저장하고, 전체 번호는 저장하지 않아요.</div>
-      <div id="preview"></div>
-      <div class="upl" style="margin-top:10px">
-        <button class="ghost" id="btnRosterList">명단 보기 · 선택 삭제</button>
+        <button class="ghost danger" id="btnRosterList">명단 보기 · 선택 삭제</button>
       </div>
       <div id="rosterListWrap" style="display:none">
         <div class="rosterctl">
@@ -310,6 +321,12 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
         </div>
         <div class="note" style="margin-top:6px">삭제해도 <b>기록(이력)에는 남지 않아요</b>. 잘못 등록된 학생을 지울 때만 사용하세요 — 되돌릴 수 없습니다.</div>
       </div>
+      <div class="upl" style="margin-top:12px">
+        <button class="ghost primary" id="btnPick">CSV·엑셀 업로드</button>
+        <input type="file" id="fileIn" accept=".csv,.xlsx,.xls,.txt">
+      </div>
+      <div class="note" style="margin-top:8px">열 이름 예: 이름 / 학년·반 / 연락처<br>연락처는 <b>뒤 4자리만</b> 뽑아 저장하고, 전체 번호는 저장하지 않아요.</div>
+      <div id="preview"></div>
     </div>
     <div class="adm"><h4>외출 중</h4><div id="outList"></div></div>
     <div class="adm"><h4>최근 기록</h4><div id="logList"></div></div>
@@ -448,6 +465,61 @@ const LocalBackend=(()=>{
       return true;
     }).sort((a,b)=>b.checkin_at-a.checkin_at);
   }
+  /* 이름 가운데 글자를 O로 가리기 (TV 공개 화면용). 2글자는 뒷글자만, 3글자 이상은 첫/끝 글자만 남기고 가운데를 O로 — study_mask_name()과 동일한 규칙 */
+  function maskName(name){
+    const s=String(name||'');
+    if(s.length<=1)return s;
+    if(s.length===2)return s[0]+'O';
+    return s[0]+'O'.repeat(s.length-2)+s[s.length-1];
+  }
+  /* 월별 학생별 통계(출석일수/총 학습시간). 출석일수는 '하루 학습시간 합계가 15분(900초) 이상인 날'만 센다 — study_monthly_stats_raw()와 동일한 규칙 */
+  function buildMonthlyStats(d,month){
+    const sessions=buildSessions(d.log,d.students,null,null);
+    const byDay=new Map();
+    sessions.forEach(s=>{
+      if(s.checkin_at==null)return;
+      const dt=new Date(s.checkin_at);
+      const ym=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+      if(ym!==month)return;
+      const key=(s.student_id||s.student_name)+'|'+dt.getFullYear()+'-'+dt.getMonth()+'-'+dt.getDate();
+      let g=byDay.get(key);
+      if(!g){g={student_id:s.student_id,name:s.student_name,grade_class:s.grade_class,secs:0};byDay.set(key,g);}
+      g.secs+=(s.study_seconds||0);
+    });
+    const byStudent=new Map();
+    byDay.forEach(g=>{
+      const key=g.student_id||g.name;if(!key)return;
+      let x=byStudent.get(key);
+      if(!x){x={student_id:g.student_id,name:g.name,grade_class:g.grade_class,days:0,total_secs:0};byStudent.set(key,x);}
+      if(g.secs>=900)x.days++;   // 15분 이상 재실한 날만 출석으로 인정
+      x.total_secs+=g.secs;
+    });
+    return[...byStudent.values()];
+  }
+  /* 출석 TOP3(등수 기준): 한 등수에 동점자가 여럿이면 이름순으로 그 등수 안에서 2명까지만 */
+  function rankAttendance(arr){
+    const sorted=arr.filter(x=>x.days>0).sort((a,b)=>b.days-a.days||String(a.name||'').localeCompare(String(b.name||''),'ko'));
+    const out=[];let rnk=0,lastVal=null,rn=0;
+    for(const item of sorted){
+      if(item.days!==lastVal){rnk++;lastVal=item.days;rn=0;}
+      if(rnk>3)break;
+      rn++;
+      if(rn>2)continue;
+      out.push(Object.assign({rank:rnk},item));
+    }
+    return out;
+  }
+  /* 학습시간 TOP3: 동점자는 공동 순위로 함께 표시 */
+  function rankStudyTime(arr){
+    const sorted=arr.filter(x=>x.total_secs>0).sort((a,b)=>b.total_secs-a.total_secs);
+    const out=[];let rnk=0,lastVal=null;
+    for(const item of sorted){
+      if(item.total_secs!==lastVal){rnk++;lastVal=item.total_secs;}
+      if(rnk>3)break;
+      out.push(Object.assign({rank:rnk},item));
+    }
+    return out;
+  }
   return{
     kind:'local',
     async seats(){return load().seats;},
@@ -495,32 +567,14 @@ const LocalBackend=(()=>{
     async monthlyRanking(pin,month){
       if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};
       if(!/^\d{4}-\d{2}$/.test(month||''))return{ok:false,code:'bad_month'};
-      const d=load();
-      const sessions=buildSessions(d.log,d.students,null,null);
-      const byStudent=new Map();
-      sessions.forEach(s=>{
-        if(s.checkin_at==null)return;
-        const dt=new Date(s.checkin_at);
-        const ym=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
-        if(ym!==month)return;
-        const key=s.student_id||s.student_name;if(!key)return;
-        let g=byStudent.get(key);
-        if(!g){g={student_id:s.student_id,name:s.student_name,grade_class:s.grade_class,days:new Set(),total_secs:0};byStudent.set(key,g);}
-        g.days.add(dt.getFullYear()+'-'+dt.getMonth()+'-'+dt.getDate());
-        g.total_secs+=(s.study_seconds||0);
-      });
-      const arr=[...byStudent.values()].map(g=>({student_id:g.student_id,name:g.name,grade_class:g.grade_class,days:g.days.size,total_secs:g.total_secs}));
-      const rankBy=key=>{
-        const sorted=arr.filter(x=>x[key]>0).sort((a,b)=>b[key]-a[key]);
-        const out=[];let rnk=0,lastVal=null;
-        for(const item of sorted){
-          if(item[key]!==lastVal){rnk++;lastVal=item[key];}
-          if(rnk>3)break;
-          out.push(Object.assign({rank:rnk},item));
-        }
-        return out;
-      };
-      return{ok:true,code:'ok',month,attendance:rankBy('days'),study_time:rankBy('total_secs')};
+      const arr=buildMonthlyStats(load(),month);
+      return{ok:true,code:'ok',month,attendance:rankAttendance(arr),study_time:rankStudyTime(arr)};
+    },
+    async publicMonthlyRanking(month){
+      if(!/^\d{4}-\d{2}$/.test(month||''))return{ok:false,code:'bad_month'};
+      const arr=buildMonthlyStats(load(),month);
+      const mask=x=>({rank:x.rank,name:maskName(x.name),grade_class:x.grade_class,days:x.days,total_secs:x.total_secs});
+      return{ok:true,code:'ok',month,attendance:rankAttendance(arr).map(mask),study_time:rankStudyTime(arr).map(mask)};
     },
     async replaceStudents(pin,rows){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
       d.students=rows.map(r=>({id:uid(),name:r.name,grade_class:r.grade_class||'',last4:r.last4}));
@@ -566,6 +620,7 @@ const RemoteBackend=(()=>{
     logs:pin=>rpc('study_admin_logs',{p_pin:pin,p_limit:30}),
     sessions:(pin,date,name)=>rpc('study_admin_sessions',{p_pin:pin,p_date:date||null,p_name:name||null}),
     monthlyRanking:(pin,month)=>rpc('study_admin_monthly_ranking',{p_pin:pin,p_month:month}),
+    publicMonthlyRanking:month=>rpc('study_public_monthly_ranking',{p_month:month}),
     replaceStudents:(pin,rows)=>rpc('study_admin_replace_students',{p_pin:pin,p_rows:rows}),
     students:pin=>rpc('study_admin_students',{p_pin:pin}),
     deleteStudents:(pin,ids)=>rpc('study_admin_delete_students',{p_pin:pin,p_ids:ids}),
@@ -899,7 +954,7 @@ function rankRowsHtml(list,valueFn){
 }
 function renderRanking(r){
   $('#rankResult').innerHTML='<div class="rankgrid">'+
-    '<div class="rankcol"><h5>📅 출석 TOP 3 (출석일수)</h5>'+rankRowsHtml(r.attendance,x=>x.days+'일')+'</div>'+
+    '<div class="rankcol"><h5>📅 출석 TOP 3 (하루 15분↑ 재실한 날만, 동점은 이름순 2명까지)</h5>'+rankRowsHtml(r.attendance,x=>x.days+'일')+'</div>'+
     '<div class="rankcol"><h5>⏱ 학습시간 TOP 3</h5>'+rankRowsHtml(r.study_time,x=>fmtHM(x.total_secs))+'</div>'+
     '</div>';
 }
@@ -913,6 +968,24 @@ async function refreshRanking(){
     if(!r||!r.ok){$('#rankResult').innerHTML='<div class="err">불러오지 못했어요</div>';return;}
     renderRanking(r);
   }catch(e){console.error(e);$('#rankResult').innerHTML='<div class="err">불러오지 못했어요</div>';}
+}
+
+/* ===== TV 화면 양옆 랭킹 (공개, PIN 불필요 — 이름은 가운데 글자를 O로 가림) ===== */
+function tvRankRowsHtml(list,valueFn){
+  if(!list||!list.length)return '<div class="none">기록 없음</div>';
+  return list.map(item=>
+    '<div class="trow r'+item.rank+'"><span class="trk">'+item.rank+'</span>'+
+    '<span class="tnm">'+(item.grade_class?esc(item.grade_class)+' ':'')+esc(item.name||'')+'</span>'+
+    '<span class="tval">'+valueFn(item)+'</span></div>').join('');
+}
+function renderTvRanking(r){
+  if(!r||!r.ok)return;
+  $('#tvRankAtt').innerHTML='<div class="tvrankcard"><h6>📅 이번 달 출석왕</h6>'+tvRankRowsHtml(r.attendance,x=>x.days+'일')+'</div>';
+  $('#tvRankTime').innerHTML='<div class="tvrankcard"><h6>⏱ 이번 달 학습시간왕</h6>'+tvRankRowsHtml(r.study_time,x=>fmtHM(x.total_secs))+'</div>';
+}
+async function refreshTvRanking(){
+  try{const r=await B.publicMonthlyRanking(todayStr().slice(0,7));renderTvRanking(r);}
+  catch(e){console.error(e);}
 }
 
 /* =====================================================================
@@ -1113,9 +1186,11 @@ async function boot(){
   $('#rankMonth').value=todayStr().slice(0,7);
   B.subscribe(()=>refresh());
   await refresh();
+  refreshTvRanking();
   route();
   setInterval(tick,1000);
   setInterval(refresh,REMOTE?20000:60000);   // 실시간 신호를 놓쳐도 주기적으로 맞춤
+  setInterval(refreshTvRanking,120000);      // TV 화면 랭킹은 자주 안 바뀌니 2분마다만
 }
 /* 확대·축소 막기: 핀치(터치 2개), iOS 제스처, Ctrl+휠, Ctrl +/-/0 */
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
