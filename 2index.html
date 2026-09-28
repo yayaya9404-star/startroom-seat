@@ -118,8 +118,9 @@ body.r-tv .legend{display:none}
 body.r-tv .map{transform:rotate(180deg)}
 body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
 /* TV 화면 양옆 빈 공간에 월별 랭킹(왼쪽 출석·오른쪽 학습시간) — 실제 #tv 화면과 관리자의 'TV 화면' 미리보기 탭에만 표시 */
-.tvrank{display:none;flex-direction:column;gap:10px;width:210px;flex:0 0 210px}
+.tvrank{display:none;flex-direction:column;gap:10px;width:270px;flex:0 0 270px}
 body.r-tv .tvrank, body.r-admin.v-tv .tvrank{display:flex}
+@media(max-width:1350px){.tvrank{width:210px;flex-basis:210px}}
 @media(max-width:1150px){.tvrank{display:none !important}}
 .tvrankcard{background:var(--tv-card);border:1px solid var(--tv-line);border-radius:14px;padding:14px 16px;color:var(--tv-ink);box-shadow:0 8px 28px rgba(20,30,50,.10)}
 .tvrankcard h6{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--tv-mute);letter-spacing:.02em}
@@ -130,6 +131,7 @@ body.r-tv .tvrank, body.r-admin.v-tv .tvrank{display:flex}
 .tvrankcard .trow.r2 .trk{background:#dfe4ea;color:#4a5568}
 .tvrankcard .trow.r3 .trk{background:#e9c9a5;color:#7a4a1f}
 .tvrankcard .tnm{flex:1;min-width:0;font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tvrankcard .tnm em{font-style:normal;font-weight:600;font-size:11.5px;color:var(--tv-mute)}
 .tvrankcard .tval{font-size:12px;color:var(--primary);font-weight:700;flex-shrink:0}
 .tvrankcard .none{font-size:12.5px;color:var(--tv-mute);padding:4px 0}
 
@@ -303,6 +305,15 @@ body.r-tv .tvrank, body.r-admin.v-tv .tvrank{display:flex}
         <div class="stat"><b id="sFree">0</b><span>빈자리</span></div>
       </div>
     </div>
+    <div class="adm"><h4>외출 중</h4><div id="outList"></div></div>
+    <div class="adm"><h4>최근 기록</h4><div id="logList"></div></div>
+    <div class="adm note">
+      학생용 주소<br>· 패드: 주소 끝에 <b>#pad</b><br>· TV: 주소 끝에 <b>#tv</b><br>· 관리자: 주소 끝 없음 (비밀번호 필요)
+    </div>
+  </div>
+
+  <div class="historywrap">
+    <div class="label">학습시간 기록 (관리자 전용)</div>
     <div class="adm">
       <h4>학생 명단</h4>
       <div class="roster-info">등록 <b id="rosterCount">-</b>명</div>
@@ -328,15 +339,6 @@ body.r-tv .tvrank, body.r-admin.v-tv .tvrank{display:flex}
       <div class="note" style="margin-top:8px">열 이름 예: 이름 / 학년·반 / 연락처<br>연락처는 <b>뒤 4자리만</b> 뽑아 저장하고, 전체 번호는 저장하지 않아요.</div>
       <div id="preview"></div>
     </div>
-    <div class="adm"><h4>외출 중</h4><div id="outList"></div></div>
-    <div class="adm"><h4>최근 기록</h4><div id="logList"></div></div>
-    <div class="adm note">
-      학생용 주소<br>· 패드: 주소 끝에 <b>#pad</b><br>· TV: 주소 끝에 <b>#tv</b><br>· 관리자: 주소 끝 없음 (비밀번호 필요)
-    </div>
-  </div>
-
-  <div class="historywrap">
-    <div class="label">학습시간 기록 (관리자 전용)</div>
     <div class="adm">
       <h4>월별 랭킹<span class="rankctl"><input type="month" id="rankMonth"><button class="ghost primary" id="rankSearch">조회</button></span></h4>
       <div id="rankResult"></div>
@@ -418,6 +420,8 @@ const $=s=>document.querySelector(s);
 const fmt=s=>{s=Math.max(0,Math.floor(s));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
 const hhmm=t=>new Date(t).toTimeString().slice(0,5);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+/* 반이름이 "초등6 [PA2]FA3/MWF/C"처럼 길 수 있어서, [ ] 안의 짧은 반 코드만 뽑아서 보여줌 */
+const shortClass=gc=>{if(!gc)return '';const m=String(gc).match(/\[([^\]]+)\]/);return m?m[1]:String(gc);};
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>t.style.display='none',3500);}
 
 /* =====================================================================
@@ -949,7 +953,7 @@ function rankRowsHtml(list,valueFn){
   if(!list.length)return '<div class="none" style="padding:4px 0">기록이 없어요</div>';
   return list.map(item=>
     '<div class="rankrow r'+item.rank+'"><span class="rk">'+item.rank+'</span>'+
-    '<span class="rn"><b>'+esc(item.name||'')+'</b>'+(item.grade_class?'<span>'+esc(item.grade_class)+'</span>':'')+'</span>'+
+    '<span class="rn"><b>'+esc(item.name||'')+'</b>'+(item.grade_class?'<span>'+esc(shortClass(item.grade_class))+'</span>':'')+'</span>'+
     '<span class="rv">'+valueFn(item)+'</span></div>').join('');
 }
 function renderRanking(r){
@@ -975,7 +979,7 @@ function tvRankRowsHtml(list,valueFn){
   if(!list||!list.length)return '<div class="none">기록 없음</div>';
   return list.map(item=>
     '<div class="trow r'+item.rank+'"><span class="trk">'+item.rank+'</span>'+
-    '<span class="tnm">'+(item.grade_class?esc(item.grade_class)+' ':'')+esc(item.name||'')+'</span>'+
+    '<span class="tnm">'+esc(item.name||'')+(item.grade_class?' <em>'+esc(shortClass(item.grade_class))+'</em>':'')+'</span>'+
     '<span class="tval">'+valueFn(item)+'</span></div>').join('');
 }
 function renderTvRanking(r){
