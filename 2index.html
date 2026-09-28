@@ -41,6 +41,52 @@ body.r-admin.v-pad .tvwrap, body.r-admin.v-pad .adminside{display:none}
 body.r-admin.v-tv .padwrap{display:none}
 body.r-admin.v-pad .padwrap{width:520px}
 body.r-admin.v-tv .tvwrap{max-width:1300px}
+/* 나란히 보기(기본 관리자 화면)에선 숫자패드 대신 배치도를 눌러서 관리 */
+body.r-admin.v-both .padwrap{display:none}
+body.r-admin.v-both .tvwrap{max-width:1300px}
+.adminhint{display:none;font-size:13px;background:#eef4ff;color:var(--primary);border:1px solid #cfe0ff;border-radius:10px;padding:9px 12px;margin-bottom:10px;text-align:center}
+.adminhint.show{display:block}
+.adminhint button{margin-left:10px;border:0;background:none;color:var(--mute);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:12.5px}
+.seat.movetarget{outline:.5cqw dashed #1fa971;outline-offset:.2cqw}
+.seat.moving{outline:.6cqw solid var(--primary);outline-offset:.2cqw;animation:hl 1s infinite;z-index:2}
+#seatMenu{position:fixed;inset:0;background:rgba(15,22,33,.55);display:none;align-items:center;justify-content:center;z-index:20}
+#seatMenu.show{display:flex}
+.historywrap{display:none;width:100%;max-width:1180px;margin:0 auto}
+body.r-admin.v-history .padwrap, body.r-admin.v-history .tvwrap, body.r-admin.v-history .adminside{display:none}
+body.r-admin.v-history .historywrap{display:block}
+.histsum{margin-bottom:16px}
+.histsum:empty{display:none;margin:0}
+.histsum-title{font-size:13px;color:var(--mute);margin-bottom:8px;font-weight:600}
+.histsum-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:10px}
+.stat.p b{color:var(--primary)}
+.histfilter{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.histfilter input[type=date],.histfilter input[type=text],.histfilter select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:14px;background:#fff}
+.histfilter select{cursor:pointer}
+.histfilter input[type=text]{flex:1 1 180px;min-width:140px}
+.histfilter-gap{flex:1 1 0;min-width:0}
+.histtoggle{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink);cursor:pointer;user-select:none;-webkit-user-select:none}
+.histtoggle input{cursor:pointer}
+@media(max-width:760px){.histfilter-gap{flex-basis:100%;height:0}}
+table.histtbl{width:100%;table-layout:fixed;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:14px}
+table.histtbl th,table.histtbl td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+table.histtbl th{background:#f5f7fa;color:var(--mute);font-weight:600;font-size:12.5px}
+table.histtbl tbody tr:last-child td{border-bottom:0}
+table.histtbl td{font-variant-numeric:tabular-nums}
+table.histtbl th:nth-child(1),table.histtbl td:nth-child(1){width:20%}
+table.histtbl th:nth-child(2),table.histtbl td:nth-child(2){width:9%;text-align:center}
+table.histtbl th:nth-child(3),table.histtbl td:nth-child(3){width:15%;text-align:right}
+table.histtbl th:nth-child(4),table.histtbl td:nth-child(4){width:15%;text-align:right}
+table.histtbl th:nth-child(5),table.histtbl td:nth-child(5){width:13%;text-align:right}
+table.histtbl th:nth-child(6),table.histtbl td:nth-child(6){width:28%;text-align:right}
+table.histtbl tbody tr:nth-child(even) td{background:#fafbfd}
+table.histtbl tbody tr.inprog td{background:#fff8ec}
+table.histtbl tbody tr.inprog td:first-child{box-shadow:inset 3px 0 0 var(--out)}
+table.histtbl .gc{display:block;color:var(--mute);font-size:11.5px;font-weight:400;margin-top:1px}
+table.histtbl .sline{padding:2px 0}
+table.histtbl .sline:not(:last-child){border-bottom:1px dashed var(--line);padding-bottom:5px;margin-bottom:3px}
+table.histtbl .prog{color:var(--out);font-weight:600}
+table.histtbl .total{font-weight:700;color:var(--primary)}
+table.histtbl .cnt{font-weight:400;font-size:11.5px;color:var(--mute)}
 /* 학생용 패드: 출결 + 자리배치만 */
 body.r-pad header.top, body.r-pad .tvwrap, body.r-pad .adminside, body.r-pad .label, body.r-pad .demo{display:none}
 body.r-pad .stage{padding:16px;justify-content:center}
@@ -93,9 +139,11 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
 .box{background:#fff;border-radius:18px;padding:22px;width:min(420px,92vw)}
 .box h3{margin-bottom:4px;font-size:18px}
 .box p{color:var(--mute);font-size:13px;margin-bottom:14px}
-#chooser button.c{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fafbfd;border-radius:12px;padding:14px;font-size:18px;margin-bottom:8px;cursor:pointer;font-family:inherit}
-#chooser button.c small{color:var(--mute);font-size:13px;margin-left:8px}
-#chooser button.x{border:0;background:none;color:var(--mute);width:100%;padding:8px;cursor:pointer;font-family:inherit}
+#chooser button.c,#seatMenu button.c{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fafbfd;border-radius:12px;padding:14px;font-size:18px;margin-bottom:8px;cursor:pointer;font-family:inherit}
+#chooser button.c small,#seatMenu button.c small{color:var(--mute);font-size:13px;margin-left:8px}
+#chooser button.x,#seatMenu button.x{border:0;background:none;color:var(--mute);width:100%;padding:8px;cursor:pointer;font-family:inherit}
+#seatMenu button.c.danger{color:var(--danger);border-color:#f3c9c9}
+#seatMenu button.c.warn{color:#b36200;border-color:#f3dcae}
 #gate input{width:100%;font-size:22px;letter-spacing:.2em;text-align:center;padding:12px;border:2px solid var(--line);border-radius:12px;margin-bottom:10px;font-family:inherit}
 #gate button{width:100%;padding:13px;border:0;border-radius:12px;background:var(--primary);color:#fff;font-size:16px;cursor:pointer;font-family:inherit}
 #gateErr{color:var(--danger);font-size:13px;min-height:18px;margin-bottom:6px}
@@ -158,6 +206,7 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
     <button data-v="both" class="on">나란히 보기</button>
     <button data-v="pad">패드 화면</button>
     <button data-v="tv">TV 화면</button>
+    <button data-v="history">학습시간 기록</button>
   </div>
   <button class="ghost" id="openPad">패드용 창 열기</button>
   <button class="ghost" id="openTv">TV용 창 열기</button>
@@ -188,7 +237,8 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
   </div>
 
   <div class="tvwrap">
-    <div class="label">전면 TV 화면 (자리배치도만 표시)</div>
+    <div class="label" id="tvLabel">전면 TV 화면 (자리배치도만 표시)</div>
+    <div class="adminhint" id="adminMapHint"></div>
     <div class="tv">
       <div class="map" id="tvMap"></div>
       <div class="legend">
@@ -225,12 +275,40 @@ body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
       학생용 주소<br>· 패드: 주소 끝에 <b>#pad</b><br>· TV: 주소 끝에 <b>#tv</b><br>· 관리자: 주소 끝 없음 (비밀번호 필요)
     </div>
   </div>
+
+  <div class="historywrap">
+    <div class="label">학습시간 기록 (관리자 전용)</div>
+    <div class="adm">
+      <div id="histSummary" class="histsum"></div>
+      <div class="histfilter">
+        <input type="date" id="histDate">
+        <input type="text" id="histName" placeholder="학생 이름 검색 (비우면 전체)">
+        <button class="ghost primary" id="histSearch">검색</button>
+        <button class="ghost" id="histToday">오늘</button>
+        <span class="histfilter-gap"></span>
+        <label class="histtoggle"><input type="checkbox" id="histProgOnly">재실중만</label>
+        <select id="histSort">
+          <option value="recent">최근 입실순</option>
+          <option value="name">이름순</option>
+          <option value="dur_desc">학습시간 긴 순</option>
+          <option value="dur_asc">학습시간 짧은 순</option>
+        </select>
+      </div>
+      <div id="histTableWrap"><div class="none">날짜를 고르고 검색해주세요</div></div>
+    </div>
+  </div>
 </div>
 
 <div id="chooser"><div class="box">
   <h3>뒷번호가 같은 학생이 있어요</h3><p>본인 이름을 눌러주세요</p>
   <div id="chooseList"></div>
   <button class="x" id="chooseCancel">취소</button>
+</div></div>
+
+<div id="seatMenu"><div class="box">
+  <h3 id="seatMenuTitle"></h3><p id="seatMenuSub"></p>
+  <div id="seatMenuActions"></div>
+  <button class="x" id="seatMenuCancel">취소</button>
 </div></div>
 
 <div id="gate"><div class="box">
@@ -251,6 +329,7 @@ const SUPABASE_URL      = 'https://qprksmuivuknplzugfeg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwcmtzbXVpdnVrbnBsenVnZmVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5NzQwMzYsImV4cCI6MjEwNTU1MDAzNn0.lhFr6-1QsqOBbQV80FgM4ROKmP26gDj18s9G_8vvOcY';
 const DEMO_PIN          = '0000';   // 데모 모드 전용 관리자 비밀번호 (Supabase 연결 시엔 SQL에서 정한 비밀번호 사용)
 const OUT_WARN_SEC      = 15*60;    // 외출 15분 초과 시 붉게 표시
+const CHECKOUT_MIN_SEC  = 2*60;     // 입실 후 이 시간(초) 안에는 학생 화면에서 퇴실 불가 (원하는 자리 나올 때까지 입퇴실 반복 방지). 관리자는 배치도에서 언제든 강제 퇴실 가능
 const SYNC_FN_URL       = 'https://qprksmuivuknplzugfeg.supabase.co/functions/v1/sync-attendance';
                                      // STaRT(바론네트웍스 관리 시스템) 자동 출석연동 함수 주소. 비워두면(따옴표 안을 지우면) 연동 안 함.
                                      // Edge Function 이름을 sync-attendance 로 만드셨으면 이 값 그대로 두시면 됩니다.
@@ -268,6 +347,8 @@ for(const c of [4,5,6,7])lay(c,7);                       // 29~32 감독관 앞
 const SEAT_NOS=Object.keys(LAYOUT).map(Number);
 /* 데모 모드에서만 쓰는 좌석 종류 (Supabase 연결 시엔 DB의 study_seats.kind 가 기준) */
 const kindOf=n=>(n>=27&&n<=32)?'exam':(n===22?'locked':'study');
+/* 짝(같은 줄 옆자리, 1·2번/3·4번 ...) 상대 좌석 번호. 데모 모드 자리 배정에서 '완전히 빈 짝' 우선 배정에 사용 */
+const pairOf=n=>n%2===1?n+1:n-1;
 
 /* ===== 유틸 ===== */
 const $=s=>document.querySelector(s);
@@ -292,6 +373,35 @@ const LocalBackend=(()=>{
   function save(d){try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}}
   function addLog(d,o){d.log.unshift(Object.assign({at:Date.now()},o));d.log.length=Math.min(d.log.length,200);}
   const seatOf=(d,id)=>d.seats.find(s=>s.student_id===id);
+  /* 입실~퇴실 기록을 세션 단위(입실시간/퇴실시간/외출시간/총 학습시간)로 재구성. Supabase의 study_admin_sessions() 함수와 같은 규칙 */
+  function buildSessions(log,students,dateStr,nameFilter){
+    const rows=log.slice().reverse(); // 오래된 순
+    const gcOf=id=>{const found=students.find(s=>s.id===id);return found?found.grade_class:'';};   // 학년/반은 현재 명단 기준(과거 시점 값이 아님, study_admin_sessions와 동일한 방식)
+    const st={};const out=[];
+    const finish=(s,checkoutAt)=>({student_id:s.id,student_name:s.name,grade_class:gcOf(s.id),seat_no:s.seat,checkin_at:s.inAt,checkout_at:checkoutAt,
+      out_seconds:Math.round(s.outMs/1000),
+      study_seconds:checkoutAt!=null?Math.max(0,Math.round((checkoutAt-s.inAt)/1000-s.outMs/1000)):null,
+      in_progress:checkoutAt==null});
+    for(const r of rows){
+      if(!['in','out','back','leave','admin_leave'].includes(r.action))continue;
+      const key=r.student_id||r.student_name;if(!key)continue;
+      let cur=st[key];
+      if(r.action==='in'){
+        if(cur&&cur.open)out.push(finish(cur,null));
+        st[key]=cur={id:r.student_id,name:r.student_name,seat:r.seat_no,inAt:r.at,outMs:0,open:true};
+      }else if(r.action==='back'){
+        if(cur&&cur.open)cur.outMs+=(r.out_seconds||0)*1000;
+      }else if((r.action==='leave'||r.action==='admin_leave')&&cur&&cur.open){
+        out.push(finish(cur,r.at));cur.open=false;
+      }
+    }
+    Object.values(st).forEach(s=>{if(s.open)out.push(finish(s,null));});
+    return out.filter(s=>{
+      if(dateStr){const dd=new Date(s.checkin_at);const local=dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0')+'-'+String(dd.getDate()).padStart(2,'0');if(local!==dateStr)return false;}
+      if(nameFilter&&!(s.student_name||'').includes(nameFilter))return false;
+      return true;
+    }).sort((a,b)=>b.checkin_at-a.checkin_at);
+  }
   return{
     kind:'local',
     async seats(){return load().seats;},
@@ -299,25 +409,43 @@ const LocalBackend=(()=>{
     async checkin(id){const d=load();const st=d.students.find(s=>s.id===id);if(!st)return{ok:false,code:'no_student'};
       const cur=seatOf(d,id);if(cur)return{ok:false,code:'already_in',seat_no:cur.seat_no};
       const free=d.seats.filter(s=>s.kind==='study'&&s.status==='empty');if(!free.length)return{ok:false,code:'full'};
-      const p=free[Math.floor(Math.random()*free.length)];
+      // 짝 상대가 비어있는 자리를 먼저 채우고, 그런 자리가 없을 때만 이미 옆에 학생이 있는 자리를 채움
+      const isEmpty=no=>{const t=d.seats.find(s=>s.seat_no===no);return t?t.status==='empty':true;};
+      const openPair=free.filter(s=>isEmpty(pairOf(s.seat_no)));
+      const pool=openPair.length?openPair:free;
+      const p=pool[Math.floor(Math.random()*pool.length)];
       Object.assign(p,{student_id:id,student_name:st.name,grade_class:st.grade_class,status:'in',out_at:null});
-      addLog(d,{student_name:st.name,seat_no:p.seat_no,action:'in'});save(d);return{ok:true,code:'ok',seat_no:p.seat_no};},
+      addLog(d,{student_id:id,student_name:st.name,seat_no:p.seat_no,action:'in'});save(d);return{ok:true,code:'ok',seat_no:p.seat_no};},
     async checkout(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
-      addLog(d,{student_name:cur.student_name,seat_no:cur.seat_no,action:'leave'});const n=cur.seat_no;
+      const lastIn=d.log.find(l=>l.student_id===id&&l.action==='in');   // d.log는 최신순(unshift)이라 find()가 곧 가장 최근 입실 기록
+      if(lastIn){const elapsed=Math.round((Date.now()-lastIn.at)/1000);
+        if(elapsed<CHECKOUT_MIN_SEC)return{ok:false,code:'too_soon',seat_no:cur.seat_no,wait_secs:CHECKOUT_MIN_SEC-elapsed};}
+      addLog(d,{student_id:id,student_name:cur.student_name,seat_no:cur.seat_no,action:'leave'});const n=cur.seat_no;
       Object.assign(cur,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});save(d);return{ok:true,code:'ok',seat_no:n};},
     async goOut(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
       if(cur.status==='out')return{ok:false,code:'already_out',seat_no:cur.seat_no};
-      cur.status='out';cur.out_at=Date.now();addLog(d,{student_name:cur.student_name,seat_no:cur.seat_no,action:'out'});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no};},
+      cur.status='out';cur.out_at=Date.now();addLog(d,{student_id:id,student_name:cur.student_name,seat_no:cur.seat_no,action:'out'});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no};},
     async comeBack(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
       if(cur.status!=='out')return{ok:false,code:'not_out',seat_no:cur.seat_no};
       const secs=Math.round((Date.now()-cur.out_at)/1000);cur.status='in';cur.out_at=null;
-      addLog(d,{student_name:cur.student_name,seat_no:cur.seat_no,action:'back',out_seconds:secs});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no,secs};},
+      addLog(d,{student_id:id,student_name:cur.student_name,seat_no:cur.seat_no,action:'back',out_seconds:secs});save(d);return{ok:true,code:'ok',seat_no:cur.seat_no,secs};},
     async adminRelease(pin,no){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();const cur=d.seats.find(s=>s.seat_no===no);
-      if(!cur||!cur.student_id)return{ok:false,code:'not_in'};addLog(d,{student_name:cur.student_name,seat_no:no,action:'admin_leave'});
+      if(!cur||!cur.student_id)return{ok:false,code:'not_in'};addLog(d,{student_id:cur.student_id,student_name:cur.student_name,seat_no:no,action:'admin_leave'});
       Object.assign(cur,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});save(d);return{ok:true,code:'ok',seat_no:no};},
+    async adminMoveSeat(pin,from,to){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};if(from===to)return{ok:false,code:'same_seat'};
+      const d=load();const src=d.seats.find(s=>s.seat_no===from);const dst=d.seats.find(s=>s.seat_no===to);
+      if(!src||!src.student_id)return{ok:false,code:'not_in'};
+      if(!dst||dst.kind!=='study')return{ok:false,code:'bad_target'};
+      if(dst.student_id)return{ok:false,code:'target_full'};
+      Object.assign(dst,{student_id:src.student_id,student_name:src.student_name,grade_class:src.grade_class,status:src.status,out_at:src.out_at});
+      const movedId=src.student_id,movedName=src.student_name;
+      Object.assign(src,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});
+      addLog(d,{student_id:movedId,student_name:movedName,seat_no:to,action:'move',out_seconds:from});save(d);
+      return{ok:true,code:'ok',seat_no:to};},
     async adminCheck(pin){return pin===DEMO_PIN;},
     async studentCount(){return load().students.length;},
     async logs(){return load().log.slice(0,30);},
+    async sessions(pin,date,name){if(pin!==DEMO_PIN)return[];const d=load();return buildSessions(d.log,d.students,date,name);},
     async replaceStudents(pin,rows){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
       d.students=rows.map(r=>({id:uid(),name:r.name,grade_class:r.grade_class||'',last4:r.last4}));
       d.seats.forEach(s=>Object.assign(s,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null}));
@@ -347,9 +475,11 @@ const RemoteBackend=(()=>{
     goOut:id=>rpc('study_go_out',{p_student:id}),
     comeBack:id=>rpc('study_come_back',{p_student:id}),
     adminRelease:(pin,no)=>rpc('study_admin_release_seat',{p_pin:pin,p_seat_no:no}),
+    adminMoveSeat:(pin,from,to)=>rpc('study_admin_move_seat',{p_pin:pin,p_from_seat:from,p_to_seat:to}),
     adminCheck:pin=>rpc('study_admin_check',{p_pin:pin}),
     studentCount:pin=>rpc('study_admin_student_count',{p_pin:pin}),
     logs:pin=>rpc('study_admin_logs',{p_pin:pin,p_limit:30}),
+    sessions:(pin,date,name)=>rpc('study_admin_sessions',{p_pin:pin,p_date:date||null,p_name:name||null}),
     replaceStudents:(pin,rows)=>rpc('study_admin_replace_students',{p_pin:pin,p_rows:rows}),
     resetAll:pin=>rpc('study_admin_reset',{p_pin:pin}),
     subscribe(cb){sb.channel('study_seats_live').on('postgres_changes',{event:'*',schema:'public',table:'study_seats'},cb).subscribe();}
@@ -365,6 +495,7 @@ const adminPin=()=>{try{return sessionStorage.getItem('admpin')||'';}catch(e){re
 let SEATS=[];              // 정규화된 좌석 배열
 let mode='in',input='';
 let hlNo=null,hlT=null;
+let moveFrom=null;         // 관리자: 지금 이동시키려는 학생의 원래 자리번호 (null이면 이동중 아님)
 function hl(n){hlNo=n;clearTimeout(hlT);hlT=setTimeout(()=>{hlNo=null;render();},10000);}
 
 function normalize(rows){
@@ -401,6 +532,7 @@ function report(m,name,r){
     case 'not_in': return show('warn',name+' · 입실 기록이 없어요',m==='back'||m==='out'?'먼저 입실해주세요':'');
     case 'already_out': hl(seat);return show('warn',name+' · 이미 외출 중','복귀 탭에서 복귀해주세요');
     case 'not_out': hl(seat);return show('warn',name+' · 외출 중이 아니에요','');
+    case 'too_soon': hl(seat);return show('warn',name+' · 입실한 지 얼마 안 됐어요','');
   }
   if(m==='in'){hl(seat);return show('ok',name+' 입실 완료','<span class="seatbig">'+seat+'번 자리</span> 배치도에서 깜빡이는 자리예요');}
   if(m==='leave')return show('ok',name+' 퇴실 완료','안녕히 가세요!');
@@ -446,6 +578,51 @@ async function seatTap(seat){
   }
   if((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out'))act(seat.sid,seat.name);
 }
+
+/* ===== 관리자: 배치도에서 자리를 눌러 이동·외출·복귀·퇴실 관리 (관리자 화면에서만 보임) ===== */
+function openSeatMenu(seat){
+  $('#seatMenuTitle').textContent=seat.no+'번 자리';
+  $('#seatMenuSub').textContent=esc(seat.name)+(seat.gc?' · '+esc(seat.gc):'');
+  const box=$('#seatMenuActions');box.innerHTML='';
+  const addBtn=(label,cls,fn)=>{const b=document.createElement('button');b.className='c'+(cls?' '+cls:'');b.textContent=label;
+    b.onclick=()=>{$('#seatMenu').classList.remove('show');fn();};box.appendChild(b);};
+  if(studySeats().some(s=>s.status==='empty'&&s.no!==seat.no)){
+    addBtn('다른 자리로 이동','',()=>{moveFrom=seat.no;render();});
+  }
+  if(seat.status==='in')addBtn('외출 처리','warn',()=>seatMenuGoOut(seat));
+  if(seat.status==='out')addBtn('복귀 처리','',()=>seatMenuComeBack(seat));
+  addBtn('퇴실 처리','danger',()=>seatMenuLeave(seat));
+  $('#seatMenu').classList.add('show');
+}
+async function seatMenuGoOut(seat){
+  try{const r=await B.goOut(seat.sid);
+    if(r&&r.ok)toast(seat.name+' 외출 처리했어요');else toast('외출 처리에 실패했어요 ('+((r&&r.code)||'오류')+')');
+  }catch(e){console.error(e);toast('오류가 났어요');}
+  refresh();
+}
+async function seatMenuComeBack(seat){
+  try{const r=await B.comeBack(seat.sid);
+    if(r&&r.ok)toast(seat.name+' 복귀 처리했어요');else toast('복귀 처리에 실패했어요 ('+((r&&r.code)||'오류')+')');
+  }catch(e){console.error(e);toast('오류가 났어요');}
+  refresh();
+}
+async function seatMenuLeave(seat){
+  if(!confirm(seat.name+' 학생('+seat.no+'번 자리)을 퇴실 처리할까요?'))return;
+  try{const r=await B.adminRelease(adminPin(),seat.no);
+    if(r&&r.ok)toast(seat.name+' 퇴실 처리했어요 ('+seat.no+'번 비움)');else toast('퇴실 처리에 실패했어요 ('+((r&&r.code)||'오류')+')');
+  }catch(e){console.error(e);toast('오류가 났어요');}
+  refresh();
+}
+async function confirmMoveTo(target){
+  const from=moveFrom;moveFrom=null;
+  if(from==null){render();return;}
+  try{const r=await B.adminMoveSeat(adminPin(),from,target.no);
+    if(r&&r.ok)toast(from+'번 → '+target.no+'번으로 이동했어요');else toast('이동에 실패했어요 ('+((r&&r.code)||'오류')+')');
+  }catch(e){console.error(e);toast('오류가 났어요');}
+  refresh();
+}
+function cancelMove(){moveFrom=null;render();}
+
 let resT;
 function show(type,title,sub){
   const r=$('#result');r.className=type;r.innerHTML='<b>'+esc(title)+'</b>'+(sub||'');
@@ -461,7 +638,7 @@ function renderDisplay(){
   const d=$('#display');d.innerHTML='';
   for(let i=0;i<4;i++){const s=document.createElement('span');if(i<input.length){s.className='f';s.textContent='●';}d.appendChild(s);}
 }
-function buildMap(el,clickable){
+function buildMap(el,clickable,adminMenu){
   el.innerHTML='';
   SEATS.forEach(seat=>{
     const d=document.createElement('div');
@@ -476,14 +653,34 @@ function buildMap(el,clickable){
     d.style.gridColumn=seat.col;d.style.gridRow=seat.row;
     if(clickable&&seat.no===hlNo)d.classList.add('hl');
     if(clickable&&((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out')||(mode==='leave'&&isAdminView()&&seat.sid&&seat.status!=='empty'))){d.classList.add('tap');d.onclick=()=>seatTap(seat);}
+    if(adminMenu&&seat.kind==='study'){
+      if(moveFrom!=null){
+        if(seat.no===moveFrom)d.classList.add('moving');
+        else if(seat.status==='empty'){d.classList.add('tap','movetarget');d.onclick=()=>confirmMoveTo(seat);}
+      }else if(seat.sid&&seat.status!=='empty'){
+        d.classList.add('tap');d.onclick=()=>openSeatMenu(seat);
+      }
+    }
     el.appendChild(d);
   });
   const sup=document.createElement('div');sup.className='sup';sup.textContent='감독관 자리';el.appendChild(sup);
 }
 const studySeats=()=>SEATS.filter(s=>s.kind==='study');
+function updateAdminHint(){
+  const lb=$('#tvLabel');if(lb)lb.textContent=isAdminView()?'자리배치도 (눌러서 관리)':'전면 TV 화면 (자리배치도만 표시)';
+  const el=$('#adminMapHint');if(!el)return;
+  if(!isAdminView()){el.classList.remove('show');return;}
+  el.classList.add('show');
+  if(moveFrom!=null){el.innerHTML=moveFrom+'번 학생이 이동할 빈 자리를 선택하세요 <button id="moveCancelBtn">취소</button>';
+    $('#moveCancelBtn').onclick=cancelMove;
+  }else{
+    el.innerHTML='자리를 누르면 이동·외출·복귀·퇴실을 처리할 수 있어요';
+  }
+}
 function render(){
-  buildMap($('#tvMap'),false);
+  buildMap($('#tvMap'),false,isAdminView());
   buildMap($('#padMap'),true);
+  updateAdminHint();
   $('#padMapCap').textContent=(mode==='leave'&&isAdminView())?'퇴실 처리할 학생의 자리를 눌러주세요 (관리자)':CAP[mode];
   $('#hint').textContent=(mode==='leave'&&isAdminView())?ADMIN_LEAVE_HINT:HINTS[mode];
   const as=studySeats();
@@ -493,16 +690,116 @@ function render(){
   $('#outList').innerHTML=outs.length?outs.map(s=>{const sec=(Date.now()-s.outAt)/1000;
     return '<div class="row"><span>'+esc(s.name)+' <small style="color:#9aa4b3">('+s.no+'번)</small></span><span class="t'+(sec>OUT_WARN_SEC?' late':'')+'">'+fmt(sec)+'</span></div>';}).join(''):'<div class="none">외출 중인 학생이 없어요</div>';
 }
-const ACTLBL={in:'입실',leave:'퇴실',admin_leave:'퇴실(관리자)',out:'외출',back:'복귀',reset:''};
+const ACTLBL={in:'입실',leave:'퇴실',admin_leave:'퇴실(관리자)',out:'외출',back:'복귀',move:'자리이동(관리자)',reset:''};
 async function refreshAdmin(){
   const pin=adminPin();
   try{
     const [cnt,logs]=await Promise.all([B.studentCount(pin),B.logs(pin)]);
     $('#rosterCount').textContent=cnt==null?'-':cnt;
-    $('#logList').innerHTML=(logs&&logs.length)?logs.map(l=>'<div class="row log"><span>'+hhmm(l.at)+'  '+esc(l.student_name||'')+' '+(ACTLBL[l.action]||'')+(l.seat_no&&l.action!=='reset'?' ('+l.seat_no+'번)':'')+'</span><span>'+(l.action==='back'&&l.out_seconds!=null?'외출 '+fmt(l.out_seconds):'')+'</span></div>').join(''):'<div class="none">아직 기록이 없어요</div>';
+    $('#logList').innerHTML=(logs&&logs.length)?logs.map(l=>{
+      let seatTxt='';
+      if(l.action==='move')seatTxt=' ('+(l.out_seconds!=null?l.out_seconds+'→':'')+l.seat_no+'번)';
+      else if(l.seat_no&&l.action!=='reset')seatTxt=' ('+l.seat_no+'번)';
+      const sub=(l.action==='back'&&l.out_seconds!=null)?'외출 '+fmt(l.out_seconds):'';
+      return '<div class="row log"><span>'+hhmm(l.at)+'  '+esc(l.student_name||'')+' '+(ACTLBL[l.action]||'')+seatTxt+'</span><span>'+sub+'</span></div>';
+    }).join(''):'<div class="none">아직 기록이 없어요</div>';
   }catch(e){console.error(e);}
 }
 function tick(){if(SEATS.some(s=>s.status==='out'))render();}
+
+/* ===== 학습시간 기록 탭 ===== */
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+function fmtHM(sec){if(sec==null)return '-';sec=Math.max(0,Math.round(sec));
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h>0?h+'시간 '+m+'분':m+'분';}
+const histMs=v=>v==null?null:(typeof v==='number'?v:Date.parse(v));
+let lastHistRows=[];          // 서버에서 마지막으로 받아온 세션 목록 (정렬·필터는 재조회 없이 이걸로 다시 그림)
+let histSort='recent',histProgOnly=false;
+/* 같은 학생이 같은 날 여러 번 입/퇴실했으면(수업 전/후 자습 등) 한 그룹으로 묶어서
+   입실·퇴실·외출 시간은 세션별로 각각 줄바꿈해서 보여주고, 총 학습시간만 그 날 합계로 보여줌 */
+function groupHistSessions(rows){
+  const dayKey=ms=>{if(ms==null)return '';const d=new Date(ms);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  const groups=new Map();
+  rows.forEach(r=>{
+    const inMs=histMs(r.checkin_at);
+    const key=(r.student_id||r.student_name||'')+'|'+dayKey(inMs);
+    let g=groups.get(key);
+    if(!g){g={student_name:r.student_name,grade_class:r.grade_class,sessions:[],maxIn:inMs};groups.set(key,g);}
+    g.sessions.push(r);
+    if(inMs!=null&&(g.maxIn==null||inMs>g.maxIn))g.maxIn=inMs;
+  });
+  return[...groups.values()].map(g=>{
+    g.sessions.sort((a,b)=>(histMs(a.checkin_at)||0)-(histMs(b.checkin_at)||0));
+    return g;
+  });
+}
+const groupStudySum=g=>{const vals=g.sessions.filter(s=>s.study_seconds!=null).map(s=>s.study_seconds);return vals.length?vals.reduce((a,b)=>a+b,0):null;};
+function sortHistGroups(groups,mode){
+  const byMode=arr=>{
+    const a=arr.slice();
+    if(mode==='name')a.sort((x,y)=>(x.student_name||'').localeCompare(y.student_name||'','ko'));
+    else if(mode==='dur_desc'||mode==='dur_asc')a.sort((x,y)=>{
+      const xv=groupStudySum(x),yv=groupStudySum(y);
+      if(xv==null&&yv==null)return 0;
+      if(xv==null)return 1;               // 진행중이라 합계가 없는 학생은 뒤로
+      if(yv==null)return -1;
+      return mode==='dur_desc'?yv-xv:xv-yv;
+    });
+    else a.sort((x,y)=>(y.maxIn||0)-(x.maxIn||0));   // 'recent' (최근 입실순, 기본값)
+    return a;
+  };
+  // 재실중인 학생은 정렬 기준과 무관하게 항상 맨 위로
+  const inprog=groups.filter(g=>g.sessions.some(s=>s.in_progress));
+  const done=groups.filter(g=>!g.sessions.some(s=>s.in_progress));
+  return byMode(inprog).concat(byMode(done));
+}
+function renderHistSummary(dateStr,groups){
+  const el=$('#histSummary');if(!el)return;
+  if(!groups.length){el.innerHTML='';return;}
+  const visited=groups.length;
+  const inprog=groups.filter(g=>g.sessions.some(s=>s.in_progress)).length;
+  const done=visited-inprog;
+  const title=(dateStr?(dateStr===todayStr()?'오늘':dateStr):'전체 날짜')+' 자습실 운영 요약';
+  el.innerHTML='<div class="histsum-title">'+esc(title)+'</div><div class="histsum-tiles">'+
+    '<div class="stat p"><b>'+visited+'</b><span>방문 인원</span></div>'+
+    '<div class="stat i"><b>'+inprog+'</b><span>재실중</span></div>'+
+    '<div class="stat"><b>'+done+'</b><span>퇴실 완료</span></div>'+
+    '</div>';
+}
+function renderHistTable(groups){
+  const wrap=$('#histTableWrap');
+  if(!groups.length){wrap.innerHTML='<div class="none">기록이 없어요</div>';return;}
+  const lines=(arr,fn)=>arr.map(v=>'<div class="sline">'+fn(v)+'</div>').join('');
+  wrap.innerHTML='<table class="histtbl"><thead><tr><th>이름</th><th>자리</th><th>입실 시간</th><th>퇴실 시간</th><th>외출 시간</th><th>총 학습시간</th></tr></thead><tbody>'+
+    groups.map(g=>{
+      const anyProgress=g.sessions.some(s=>s.in_progress);
+      const seats=lines(g.sessions,s=>(s.seat_no||'-')+'번');
+      const ins=lines(g.sessions,s=>{const t=histMs(s.checkin_at);return t?hhmm(t):'-';});
+      const outs=lines(g.sessions,s=>{const t=histMs(s.checkout_at);return t?hhmm(t):'<span class="prog">재실중</span>';});
+      const outSecs=lines(g.sessions,s=>fmtHM(s.out_seconds||0));
+      const studySum=groupStudySum(g);
+      const totalTxt=(studySum!=null?fmtHM(studySum):'-')+(anyProgress?' <span class="prog">(재실중)</span>':'')+
+        (g.sessions.length>1?'<div class="cnt">'+g.sessions.length+'건 합계</div>':'');
+      return '<tr class="'+(anyProgress?'inprog':'')+'"><td>'+esc(g.student_name||'')+(g.grade_class?'<span class="gc">'+esc(g.grade_class)+'</span>':'')+'</td>'+
+        '<td>'+seats+'</td><td>'+ins+'</td><td>'+outs+'</td>'+
+        '<td>'+outSecs+'</td>'+
+        '<td class="total">'+totalTxt+'</td></tr>';}).join('')+
+    '</tbody></table>';
+}
+function applyHistView(){
+  const groups=groupHistSessions(lastHistRows);
+  renderHistSummary($('#histDate').value,groups);
+  let view=histProgOnly?groups.filter(g=>g.sessions.some(s=>s.in_progress)):groups;
+  view=sortHistGroups(view,histSort);
+  renderHistTable(view);
+}
+async function refreshHistory(){
+  const pin=adminPin();if(!pin)return;
+  const date=$('#histDate').value;const name=$('#histName').value.trim();
+  $('#histTableWrap').innerHTML='<div class="none">불러오는 중...</div>';
+  $('#histSummary').innerHTML='';
+  try{lastHistRows=await B.sessions(pin,date,name);applyHistView();}
+  catch(e){console.error(e);$('#histTableWrap').innerHTML='<div class="err">불러오지 못했어요</div>';}
+}
 
 /* =====================================================================
    명단 업로드 (CSV / 엑셀)
@@ -602,11 +899,19 @@ const keys=$('#keys');
 $('#modes').onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=b.dataset.m;input='';
   document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b));renderDisplay();render();};
 $('#viewSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
-  document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on',x===b));document.body.className='r-admin v-'+b.dataset.v;};
+  document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on',x===b));document.body.className='r-admin v-'+b.dataset.v;
+  moveFrom=null;$('#seatMenu').classList.remove('show');render();
+  if(b.dataset.v==='history')refreshHistory();};
+$('#histSearch').onclick=refreshHistory;
+$('#histName').addEventListener('keydown',e=>{if(e.key==='Enter')refreshHistory();});
+$('#histToday').onclick=()=>{$('#histDate').value=todayStr();refreshHistory();};
+$('#histProgOnly').onchange=()=>{histProgOnly=$('#histProgOnly').checked;applyHistView();};
+$('#histSort').onchange=()=>{histSort=$('#histSort').value;applyHistView();};
 $('#chooseCancel').onclick=()=>$('#chooser').classList.remove('show');
+$('#seatMenuCancel').onclick=()=>$('#seatMenu').classList.remove('show');
 $('#gateOk').onclick=tryUnlock;
 $('#gatePin').addEventListener('keydown',e=>{if(e.key==='Enter')tryUnlock();});
-$('#btnLock').onclick=()=>{try{sessionStorage.removeItem('admpin');}catch(e){}route();};
+$('#btnLock').onclick=()=>{moveFrom=null;try{sessionStorage.removeItem('admpin');}catch(e){}route();};
 const base=()=>location.href.split('#')[0];
 $('#openPad').onclick=()=>window.open(base()+'#pad','_blank');
 $('#openTv').onclick=()=>window.open(base()+'#tv','_blank');
@@ -635,6 +940,7 @@ async function boot(){
     B.find('1234').then(()=>{const d=JSON.parse(localStorage.getItem('studyroom-local-v1')||'{}');
       if(d.students)$('#demoHint').textContent='시연용 뒷번호: '+[...new Set(d.students.map(s=>s.last4))].slice(0,9).join(' · ');});}
   renderDisplay();
+  $('#histDate').value=todayStr();
   B.subscribe(()=>refresh());
   await refresh();
   route();
