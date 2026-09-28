@@ -80,6 +80,7 @@ body.r-admin.v-history .historywrap{display:block}
 .histfilter select{cursor:pointer}
 .histfilter input[type=text]{flex:1 1 180px;min-width:140px}
 .histfilter-gap{flex:1 1 0;min-width:0}
+.histfilter-sep{color:var(--mute);font-size:13px}
 .histtoggle{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink);cursor:pointer;user-select:none;-webkit-user-select:none}
 .histtoggle input{cursor:pointer}
 @media(max-width:760px){.histfilter-gap{flex-basis:100%;height:0}}
@@ -121,11 +122,11 @@ body.r-tv .legend{display:none}
 /* 감독관 자리가 위로 오도록 180도 회전 (TV 화면 전용). 글자는 다시 반대로 돌려 바로 보이게 함 */
 body.r-tv .map{transform:rotate(180deg)}
 body.r-tv .map .seat,body.r-tv .map .sup{transform:rotate(180deg)}
-/* TV 화면 양옆 빈 공간에 월별 랭킹(왼쪽 출석·오른쪽 학습시간) — 실제 #tv 화면과 관리자의 'TV 화면' 미리보기 탭에만 표시 */
-.tvrank{display:none;flex-direction:column;gap:10px;width:270px;flex:0 0 270px}
-body.r-tv .tvrank, body.r-admin.v-tv .tvrank{display:flex}
-@media(max-width:1350px){.tvrank{width:210px;flex-basis:210px}}
-@media(max-width:1150px){.tvrank{display:none !important}}
+/* TV 화면 오른쪽 빈 공간에 월별 랭킹(위: 출석왕 · 아래: 학습시간왕, TOP3만 뽑으니 한쪽으로 몰아서 표시) — 실제 #tv 화면과 관리자의 'TV 화면' 미리보기 탭에만 표시 */
+.tvrank-stack{display:none;flex-direction:column;gap:14px;width:290px;flex:0 0 290px}
+body.r-tv .tvrank-stack, body.r-admin.v-tv .tvrank-stack{display:flex}
+@media(max-width:1350px){.tvrank-stack{width:220px;flex-basis:220px}}
+@media(max-width:1150px){.tvrank-stack{display:none !important}}
 .tvrankcard{background:var(--tv-card);border:1px solid var(--tv-line);border-radius:14px;padding:14px 16px;color:var(--tv-ink);box-shadow:0 8px 28px rgba(20,30,50,.10)}
 .tvrankcard h6{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--tv-mute);letter-spacing:.02em}
 .tvrankcard .trow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--tv-line)}
@@ -284,7 +285,6 @@ body.r-tv .tvrank, body.r-admin.v-tv .tvrank{display:flex}
     </div>
   </div>
 
-  <div id="tvRankAtt" class="tvrank"></div>
   <div class="tvwrap">
     <div class="label" id="tvLabel">전면 TV 화면 (자리배치도만 표시)</div>
     <div class="adminhint" id="adminMapHint"></div>
@@ -298,7 +298,10 @@ body.r-tv .tvrank, body.r-admin.v-tv .tvrank{display:flex}
       </div>
     </div>
   </div>
-  <div id="tvRankTime" class="tvrank"></div>
+  <div class="tvrank-stack">
+    <div id="tvRankAtt"></div>
+    <div id="tvRankTime"></div>
+  </div>
 
   <div class="adminside">
     <div class="label">관리자 전용 (학생 화면에는 안 나옴)</div>
@@ -350,7 +353,9 @@ body.r-tv .tvrank, body.r-admin.v-tv .tvrank{display:flex}
     <div class="adm">
       <div id="histSummary" class="histsum"></div>
       <div class="histfilter">
-        <input type="date" id="histDate">
+        <input type="date" id="histDateFrom">
+        <span class="histfilter-sep">~</span>
+        <input type="date" id="histDateTo">
         <input type="text" id="histName" placeholder="학생 이름 검색 (비우면 전체)">
         <button class="ghost primary" id="histSearch">검색</button>
         <button class="ghost" id="histToday">오늘</button>
@@ -445,7 +450,7 @@ const LocalBackend=(()=>{
   function addLog(d,o){d._seq=(d._seq||0)+1;d.log.unshift(Object.assign({id:d._seq,at:Date.now()},o));d.log.length=Math.min(d.log.length,200);}
   const seatOf=(d,id)=>d.seats.find(s=>s.student_id===id);
   /* 입실~퇴실 기록을 세션 단위(입실시간/퇴실시간/외출시간/총 학습시간)로 재구성. Supabase의 study_admin_sessions() 함수와 같은 규칙 */
-  function buildSessions(log,students,dateStr,nameFilter){
+  function buildSessions(log,students,dateFrom,dateTo,nameFilter){
     const rows=log.slice().reverse(); // 오래된 순
     const gcOf=id=>{const found=students.find(s=>s.id===id);return found?found.grade_class:'';};   // 학년/반은 현재 명단 기준(과거 시점 값이 아님, study_admin_sessions와 동일한 방식)
     const st={};const out=[];
@@ -472,7 +477,11 @@ const LocalBackend=(()=>{
     }
     Object.values(st).forEach(s=>{if(s.open)out.push(finish(s,null));});
     return out.filter(s=>{
-      if(dateStr){const dd=new Date(s.checkin_at);const local=dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0')+'-'+String(dd.getDate()).padStart(2,'0');if(local!==dateStr)return false;}
+      if(dateFrom||dateTo){
+        const dd=new Date(s.checkin_at);const local=dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0')+'-'+String(dd.getDate()).padStart(2,'0');
+        if(dateFrom&&local<dateFrom)return false;
+        if(dateTo&&local>dateTo)return false;
+      }
       if(nameFilter&&!(s.student_name||'').includes(nameFilter))return false;
       return true;
     }).sort((a,b)=>b.checkin_at-a.checkin_at);
@@ -486,7 +495,7 @@ const LocalBackend=(()=>{
   }
   /* 월별 학생별 통계(출석일수/총 학습시간). 출석일수는 '하루 학습시간 합계가 15분(900초) 이상인 날'만 센다 — study_monthly_stats_raw()와 동일한 규칙 */
   function buildMonthlyStats(d,month){
-    const sessions=buildSessions(d.log,d.students,null,null);
+    const sessions=buildSessions(d.log,d.students,null,null,null);
     const byDay=new Map();
     sessions.forEach(s=>{
       if(s.checkin_at==null)return;
@@ -575,7 +584,7 @@ const LocalBackend=(()=>{
     async adminCheck(pin){return pin===DEMO_PIN;},
     async studentCount(){return load().students.length;},
     async logs(){return load().log.slice(0,30);},
-    async sessions(pin,date,name){if(pin!==DEMO_PIN)return[];const d=load();return buildSessions(d.log,d.students,date,name);},
+    async sessions(pin,dateFrom,dateTo,name){if(pin!==DEMO_PIN)return[];const d=load();return buildSessions(d.log,d.students,dateFrom,dateTo,name);},
     // 입퇴실 기록(세션) 하나 삭제 — 잘못 입력된 입/퇴실을 통계에서 아예 빼고 싶을 때. study_admin_delete_session()과 동일한 규칙:
     // 지우는 세션이 아직 재실중(좌석을 차지한 채)이고, 그 사이 같은 학생이 다시 입실한 적이 없으면 좌석도 함께 비움
     async deleteSession(pin,ids){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
@@ -645,7 +654,7 @@ const RemoteBackend=(()=>{
     adminCheck:pin=>rpc('study_admin_check',{p_pin:pin}),
     studentCount:pin=>rpc('study_admin_student_count',{p_pin:pin}),
     logs:pin=>rpc('study_admin_logs',{p_pin:pin,p_limit:30}),
-    sessions:(pin,date,name)=>rpc('study_admin_sessions',{p_pin:pin,p_date:date||null,p_name:name||null}),
+    sessions:(pin,dateFrom,dateTo,name)=>rpc('study_admin_sessions',{p_pin:pin,p_date_from:dateFrom||null,p_date_to:dateTo||null,p_name:name||null}),
     deleteSession:(pin,ids)=>rpc('study_admin_delete_session',{p_pin:pin,p_log_ids:ids}),
     monthlyRanking:(pin,month)=>rpc('study_admin_monthly_ranking',{p_pin:pin,p_month:month}),
     publicMonthlyRanking:month=>rpc('study_public_monthly_ranking',{p_month:month}),
@@ -923,13 +932,20 @@ function sortHistGroups(groups,mode){
   const done=groups.filter(g=>!g.sessions.some(s=>s.in_progress));
   return byMode(inprog).concat(byMode(done));
 }
-function renderHistSummary(dateStr,groups){
+function histRangeLabel(from,to){
+  if(!from&&!to)return '전체 날짜';
+  if(from&&to&&from===to)return from===todayStr()?'오늘':from;
+  if(from&&to)return from+' ~ '+to;
+  if(from)return from+' 이후';
+  return to+' 까지';
+}
+function renderHistSummary(dateFrom,dateTo,groups){
   const el=$('#histSummary');if(!el)return;
   if(!groups.length){el.innerHTML='';return;}
   const visited=groups.length;
   const inprog=groups.filter(g=>g.sessions.some(s=>s.in_progress)).length;
   const done=visited-inprog;
-  const title=(dateStr?(dateStr===todayStr()?'오늘':dateStr):'전체 날짜')+' 자습실 운영 요약';
+  const title=histRangeLabel(dateFrom,dateTo)+' 자습실 운영 요약';
   el.innerHTML='<div class="histsum-title">'+esc(title)+'</div><div class="histsum-tiles">'+
     '<div class="stat p"><b>'+visited+'</b><span>방문 인원</span></div>'+
     '<div class="stat i"><b>'+inprog+'</b><span>재실중</span></div>'+
@@ -963,17 +979,21 @@ function renderHistTable(groups){
 }
 function applyHistView(){
   const groups=groupHistSessions(lastHistRows);
-  renderHistSummary($('#histDate').value,groups);
+  renderHistSummary($('#histDateFrom').value,$('#histDateTo').value,groups);
   let view=histProgOnly?groups.filter(g=>g.sessions.some(s=>s.in_progress)):groups;
   view=sortHistGroups(view,histSort);
   renderHistTable(view);
 }
 async function refreshHistory(){
   const pin=adminPin();if(!pin)return;
-  const date=$('#histDate').value;const name=$('#histName').value.trim();
+  let from=$('#histDateFrom').value;let to=$('#histDateTo').value;
+  if(from&&to&&from>to){ // 시작일이 종료일보다 늦으면(실수로 반대로 입력) 그냥 서로 바꿔줌
+    [from,to]=[to,from];$('#histDateFrom').value=from;$('#histDateTo').value=to;
+  }
+  const name=$('#histName').value.trim();
   $('#histTableWrap').innerHTML='<div class="none">불러오는 중...</div>';
   $('#histSummary').innerHTML='';
-  try{lastHistRows=await B.sessions(pin,date,name);applyHistView();}
+  try{lastHistRows=await B.sessions(pin,from,to,name);applyHistView();}
   catch(e){console.error(e);$('#histTableWrap').innerHTML='<div class="err">불러오지 못했어요</div>';}
 }
 
@@ -1149,7 +1169,7 @@ $('#viewSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.v==='history'){refreshHistory();refreshRanking();}};
 $('#histSearch').onclick=refreshHistory;
 $('#histName').addEventListener('keydown',e=>{if(e.key==='Enter')refreshHistory();});
-$('#histToday').onclick=()=>{$('#histDate').value=todayStr();refreshHistory();};
+$('#histToday').onclick=()=>{$('#histDateFrom').value=todayStr();$('#histDateTo').value=todayStr();refreshHistory();};
 $('#rankSearch').onclick=refreshRanking;
 $('#histProgOnly').onchange=()=>{histProgOnly=$('#histProgOnly').checked;applyHistView();};
 $('#histSort').onchange=()=>{histSort=$('#histSort').value;applyHistView();};
@@ -1231,7 +1251,7 @@ async function boot(){
     B.find('1234').then(()=>{const d=JSON.parse(localStorage.getItem('studyroom-local-v1')||'{}');
       if(d.students)$('#demoHint').textContent='시연용 뒷번호: '+[...new Set(d.students.map(s=>s.last4))].slice(0,9).join(' · ');});}
   renderDisplay();
-  $('#histDate').value=todayStr();
+  $('#histDateFrom').value=todayStr();$('#histDateTo').value=todayStr();
   $('#rankMonth').value=todayStr().slice(0,7);
   B.subscribe(()=>refresh());
   await refresh();
