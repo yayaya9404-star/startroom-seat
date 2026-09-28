@@ -88,12 +88,13 @@ table.histtbl th,table.histtbl td{padding:10px 12px;text-align:left;border-botto
 table.histtbl th{background:#f5f7fa;color:var(--mute);font-weight:600;font-size:12.5px}
 table.histtbl tbody tr:last-child td{border-bottom:0}
 table.histtbl td{font-variant-numeric:tabular-nums}
-table.histtbl th:nth-child(1),table.histtbl td:nth-child(1){width:20%}
-table.histtbl th:nth-child(2),table.histtbl td:nth-child(2){width:9%;text-align:center}
-table.histtbl th:nth-child(3),table.histtbl td:nth-child(3){width:15%;text-align:right}
-table.histtbl th:nth-child(4),table.histtbl td:nth-child(4){width:15%;text-align:right}
-table.histtbl th:nth-child(5),table.histtbl td:nth-child(5){width:13%;text-align:right}
-table.histtbl th:nth-child(6),table.histtbl td:nth-child(6){width:28%;text-align:right}
+table.histtbl th:nth-child(1),table.histtbl td:nth-child(1){width:17%}
+table.histtbl th:nth-child(2),table.histtbl td:nth-child(2){width:8%;text-align:center}
+table.histtbl th:nth-child(3),table.histtbl td:nth-child(3){width:13%;text-align:right}
+table.histtbl th:nth-child(4),table.histtbl td:nth-child(4){width:13%;text-align:right}
+table.histtbl th:nth-child(5),table.histtbl td:nth-child(5){width:11%;text-align:right}
+table.histtbl th:nth-child(6),table.histtbl td:nth-child(6){width:24%;text-align:right}
+table.histtbl th:nth-child(7),table.histtbl td:nth-child(7){width:14%;text-align:center}
 table.histtbl tbody tr:nth-child(even) td{background:#fafbfd}
 table.histtbl tbody tr.inprog td{background:#fff8ec}
 table.histtbl tbody tr.inprog td:first-child{box-shadow:inset 3px 0 0 var(--out)}
@@ -103,6 +104,9 @@ table.histtbl .sline:not(:last-child){border-bottom:1px dashed var(--line);paddi
 table.histtbl .prog{color:var(--out);font-weight:600}
 table.histtbl .total{font-weight:700;color:var(--primary)}
 table.histtbl .cnt{font-weight:400;font-size:11.5px;color:var(--mute)}
+table.histtbl .histdel{border:1px solid var(--line);background:#fff;color:var(--danger);padding:3px 10px;border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit}
+table.histtbl .histdel:hover{background:#fff0f0;border-color:var(--danger)}
+table.histtbl .histdel:disabled{opacity:.5;cursor:default}
 /* 학생용 패드: 출결 + 자리배치만 */
 body.r-pad header.top, body.r-pad .tvwrap, body.r-pad .adminside, body.r-pad .label, body.r-pad .demo{display:none}
 body.r-pad .stage{padding:16px;justify-content:center}
@@ -438,7 +442,7 @@ const LocalBackend=(()=>{
     seats:SEAT_NOS.map(no=>({seat_no:no,kind:kindOf(no),student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null})),log:[]};}
   function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.seats)return d;}catch(e){}const d=fresh();save(d);return d;}
   function save(d){try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}}
-  function addLog(d,o){d.log.unshift(Object.assign({at:Date.now()},o));d.log.length=Math.min(d.log.length,200);}
+  function addLog(d,o){d._seq=(d._seq||0)+1;d.log.unshift(Object.assign({id:d._seq,at:Date.now()},o));d.log.length=Math.min(d.log.length,200);}
   const seatOf=(d,id)=>d.seats.find(s=>s.student_id===id);
   /* 입실~퇴실 기록을 세션 단위(입실시간/퇴실시간/외출시간/총 학습시간)로 재구성. Supabase의 study_admin_sessions() 함수와 같은 규칙 */
   function buildSessions(log,students,dateStr,nameFilter){
@@ -448,17 +452,21 @@ const LocalBackend=(()=>{
     const finish=(s,checkoutAt)=>({student_id:s.id,student_name:s.name,grade_class:gcOf(s.id),seat_no:s.seat,checkin_at:s.inAt,checkout_at:checkoutAt,
       out_seconds:Math.round(s.outMs/1000),
       study_seconds:checkoutAt!=null?Math.max(0,Math.round((checkoutAt-s.inAt)/1000-s.outMs/1000)):null,
-      in_progress:checkoutAt==null});
+      in_progress:checkoutAt==null,
+      log_ids:(s.ids||[]).filter(x=>x!=null)});   // 이 세션을 구성하는 원본 log 항목 id들 — 세션 단위 삭제에 사용
     for(const r of rows){
       if(!['in','out','back','leave','admin_leave'].includes(r.action))continue;
       const key=r.student_id||r.student_name;if(!key)continue;
       let cur=st[key];
       if(r.action==='in'){
         if(cur&&cur.open)out.push(finish(cur,null));
-        st[key]=cur={id:r.student_id,name:r.student_name,seat:r.seat_no,inAt:r.at,outMs:0,open:true};
+        st[key]=cur={id:r.student_id,name:r.student_name,seat:r.seat_no,inAt:r.at,outMs:0,open:true,ids:[r.id]};
+      }else if(r.action==='out'){
+        if(cur&&cur.open)cur.ids.push(r.id);
       }else if(r.action==='back'){
-        if(cur&&cur.open)cur.outMs+=(r.out_seconds||0)*1000;
+        if(cur&&cur.open){cur.outMs+=(r.out_seconds||0)*1000;cur.ids.push(r.id);}
       }else if((r.action==='leave'||r.action==='admin_leave')&&cur&&cur.open){
+        cur.ids.push(r.id);
         out.push(finish(cur,r.at));cur.open=false;
       }
     }
@@ -568,6 +576,21 @@ const LocalBackend=(()=>{
     async studentCount(){return load().students.length;},
     async logs(){return load().log.slice(0,30);},
     async sessions(pin,date,name){if(pin!==DEMO_PIN)return[];const d=load();return buildSessions(d.log,d.students,date,name);},
+    // 입퇴실 기록(세션) 하나 삭제 — 잘못 입력된 입/퇴실을 통계에서 아예 빼고 싶을 때. study_admin_delete_session()과 동일한 규칙:
+    // 지우는 세션이 아직 재실중(좌석을 차지한 채)이고, 그 사이 같은 학생이 다시 입실한 적이 없으면 좌석도 함께 비움
+    async deleteSession(pin,ids){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
+      const idSet=new Set(ids||[]);if(!idSet.size)return{ok:false,code:'no_ids'};
+      const inRow=d.log.find(r=>idSet.has(r.id)&&r.action==='in');
+      if(inRow){
+        const newerIn=d.log.some(r=>r.action==='in'&&r.student_id===inRow.student_id&&r.at>inRow.at);
+        if(!newerIn){
+          const seat=d.seats.find(s=>s.student_id===inRow.student_id);
+          if(seat)Object.assign(seat,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});
+        }
+      }
+      const before=d.log.length;
+      d.log=d.log.filter(r=>!idSet.has(r.id));
+      save(d);return{ok:true,code:'ok',deleted:before-d.log.length};},
     async monthlyRanking(pin,month){
       if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};
       if(!/^\d{4}-\d{2}$/.test(month||''))return{ok:false,code:'bad_month'};
@@ -623,6 +646,7 @@ const RemoteBackend=(()=>{
     studentCount:pin=>rpc('study_admin_student_count',{p_pin:pin}),
     logs:pin=>rpc('study_admin_logs',{p_pin:pin,p_limit:30}),
     sessions:(pin,date,name)=>rpc('study_admin_sessions',{p_pin:pin,p_date:date||null,p_name:name||null}),
+    deleteSession:(pin,ids)=>rpc('study_admin_delete_session',{p_pin:pin,p_log_ids:ids}),
     monthlyRanking:(pin,month)=>rpc('study_admin_monthly_ranking',{p_pin:pin,p_month:month}),
     publicMonthlyRanking:month=>rpc('study_public_monthly_ranking',{p_month:month}),
     replaceStudents:(pin,rows)=>rpc('study_admin_replace_students',{p_pin:pin,p_rows:rows}),
@@ -916,7 +940,7 @@ function renderHistTable(groups){
   const wrap=$('#histTableWrap');
   if(!groups.length){wrap.innerHTML='<div class="none">기록이 없어요</div>';return;}
   const lines=(arr,fn)=>arr.map(v=>'<div class="sline">'+fn(v)+'</div>').join('');
-  wrap.innerHTML='<table class="histtbl"><thead><tr><th>이름</th><th>자리</th><th>입실 시간</th><th>퇴실 시간</th><th>외출 시간</th><th>총 학습시간</th></tr></thead><tbody>'+
+  wrap.innerHTML='<table class="histtbl"><thead><tr><th>이름</th><th>자리</th><th>입실 시간</th><th>퇴실 시간</th><th>외출 시간</th><th>총 학습시간</th><th>관리</th></tr></thead><tbody>'+
     groups.map(g=>{
       const anyProgress=g.sessions.some(s=>s.in_progress);
       const seats=lines(g.sessions,s=>(s.seat_no||'-')+'번');
@@ -926,10 +950,15 @@ function renderHistTable(groups){
       const studySum=groupStudySum(g);
       const totalTxt=(studySum!=null?fmtHM(studySum):'-')+(anyProgress?' <span class="prog">(재실중)</span>':'')+
         (g.sessions.length>1?'<div class="cnt">'+g.sessions.length+'건 합계</div>':'');
+      // 세션(줄) 하나만 콕 집어 삭제 — 관리자가 대신 입실 눌렀다가 실수했거나, 학생이 입실만 눌러놓고 실제로는
+      // 자리에 없었던 경우처럼 통계에 아예 안 잡히게 지우고 싶을 때. log_ids가 없는(옛날 데이터) 세션은 버튼을 숨김
+      const dels=lines(g.sessions,s=>(s.log_ids&&s.log_ids.length)?
+        '<button class="histdel" data-ids=\''+esc(JSON.stringify(s.log_ids))+'\' data-inprog=\''+(s.in_progress?'1':'0')+'\'>삭제</button>':'-');
       return '<tr class="'+(anyProgress?'inprog':'')+'"><td>'+esc(g.student_name||'')+(g.grade_class?'<span class="gc">'+esc(g.grade_class)+'</span>':'')+'</td>'+
         '<td>'+seats+'</td><td>'+ins+'</td><td>'+outs+'</td>'+
         '<td>'+outSecs+'</td>'+
-        '<td class="total">'+totalTxt+'</td></tr>';}).join('')+
+        '<td class="total">'+totalTxt+'</td>'+
+        '<td>'+dels+'</td></tr>';}).join('')+
     '</tbody></table>';
 }
 function applyHistView(){
@@ -1124,6 +1153,22 @@ $('#histToday').onclick=()=>{$('#histDate').value=todayStr();refreshHistory();};
 $('#rankSearch').onclick=refreshRanking;
 $('#histProgOnly').onchange=()=>{histProgOnly=$('#histProgOnly').checked;applyHistView();};
 $('#histSort').onchange=()=>{histSort=$('#histSort').value;applyHistView();};
+$('#histTableWrap').addEventListener('click',async e=>{
+  const btn=e.target.closest('.histdel');if(!btn)return;
+  const ids=JSON.parse(btn.dataset.ids||'[]');if(!ids.length)return;
+  const inprog=btn.dataset.inprog==='1';
+  const msg=inprog
+    ?'이 재실중 기록을 삭제할까요?\n좌석도 함께 비워지고, 통계(랭킹·학습시간)에는 전혀 남지 않아요. 되돌릴 수 없어요.'
+    :'이 입퇴실 기록 하나를 삭제할까요?\n통계(랭킹·학습시간)에서도 빠지고, 되돌릴 수 없어요.';
+  if(!confirm(msg))return;
+  const pin=adminPin();if(!pin)return;
+  btn.disabled=true;
+  try{
+    const r=await B.deleteSession(pin,ids);
+    if(r&&r.ok){toast('기록을 삭제했어요');refreshHistory();if(isAdminView())refreshAdmin();}
+    else{toast('삭제하지 못했어요');btn.disabled=false;}
+  }catch(err){console.error(err);toast('오류가 났어요');btn.disabled=false;}
+});
 $('#chooseCancel').onclick=()=>$('#chooser').classList.remove('show');
 $('#seatMenuCancel').onclick=()=>$('#seatMenu').classList.remove('show');
 $('#gateOk').onclick=tryUnlock;
