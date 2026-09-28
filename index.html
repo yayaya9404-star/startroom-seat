@@ -298,6 +298,7 @@ const SUPABASE_URL      = 'https://qprksmuivuknplzugfeg.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwcmtzbXVpdnVrbnBsenVnZmVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk5NzQwMzYsImV4cCI6MjEwNTU1MDAzNn0.lhFr6-1QsqOBbQV80FgM4ROKmP26gDj18s9G_8vvOcY';
 const DEMO_PIN          = '0000';   // 데모 모드 전용 관리자 비밀번호 (Supabase 연결 시엔 SQL에서 정한 비밀번호 사용)
 const OUT_WARN_SEC      = 15*60;    // 외출 15분 초과 시 붉게 표시
+const CHECKOUT_MIN_SEC  = 2*60;     // 입실 후 이 시간(초) 안에는 학생 화면에서 퇴실 불가 (원하는 자리 나올 때까지 입퇴실 반복 방지). 관리자는 배치도에서 언제든 강제 퇴실 가능
 const SYNC_FN_URL       = 'https://qprksmuivuknplzugfeg.supabase.co/functions/v1/sync-attendance';
                                      // STaRT(바론네트웍스 관리 시스템) 자동 출석연동 함수 주소. 비워두면(따옴표 안을 지우면) 연동 안 함.
                                      // Edge Function 이름을 sync-attendance 로 만드셨으면 이 값 그대로 두시면 됩니다.
@@ -384,6 +385,9 @@ const LocalBackend=(()=>{
       Object.assign(p,{student_id:id,student_name:st.name,grade_class:st.grade_class,status:'in',out_at:null});
       addLog(d,{student_id:id,student_name:st.name,seat_no:p.seat_no,action:'in'});save(d);return{ok:true,code:'ok',seat_no:p.seat_no};},
     async checkout(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
+      const lastIn=d.log.find(l=>l.student_id===id&&l.action==='in');   // d.log는 최신순(unshift)이라 find()가 곧 가장 최근 입실 기록
+      if(lastIn){const elapsed=Math.round((Date.now()-lastIn.at)/1000);
+        if(elapsed<CHECKOUT_MIN_SEC)return{ok:false,code:'too_soon',seat_no:cur.seat_no,wait_secs:CHECKOUT_MIN_SEC-elapsed};}
       addLog(d,{student_id:id,student_name:cur.student_name,seat_no:cur.seat_no,action:'leave'});const n=cur.seat_no;
       Object.assign(cur,{student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null});save(d);return{ok:true,code:'ok',seat_no:n};},
     async goOut(id){const d=load();const cur=seatOf(d,id);if(!cur)return{ok:false,code:'not_in'};
@@ -496,6 +500,7 @@ function report(m,name,r){
     case 'not_in': return show('warn',name+' · 입실 기록이 없어요',m==='back'||m==='out'?'먼저 입실해주세요':'');
     case 'already_out': hl(seat);return show('warn',name+' · 이미 외출 중','복귀 탭에서 복귀해주세요');
     case 'not_out': hl(seat);return show('warn',name+' · 외출 중이 아니에요','');
+    case 'too_soon': hl(seat);return show('warn',name+' · 입실한 지 얼마 안 됐어요','');
   }
   if(m==='in'){hl(seat);return show('ok',name+' 입실 완료','<span class="seatbig">'+seat+'번 자리</span> 배치도에서 깜빡이는 자리예요');}
   if(m==='leave')return show('ok',name+' 퇴실 완료','안녕히 가세요!');
