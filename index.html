@@ -105,6 +105,7 @@ table.histtbl .sline:not(:last-child){border-bottom:1px dashed var(--line);paddi
 table.histtbl .prog{color:var(--out);font-weight:600}
 table.histtbl .total{font-weight:700;color:var(--primary)}
 table.histtbl .cnt{font-weight:400;font-size:11.5px;color:var(--mute)}
+table.histtbl .outval{color:var(--out);font-weight:700}
 table.histtbl .histdel{border:1px solid var(--line);background:#fff;color:var(--danger);padding:3px 10px;border-radius:7px;font-size:12px;cursor:pointer;font-family:inherit}
 table.histtbl .histdel:hover{background:#fff0f0;border-color:var(--danger)}
 table.histtbl .histdel:disabled{opacity:.5;cursor:default}
@@ -962,7 +963,7 @@ function renderHistTable(groups){
       const seats=lines(g.sessions,s=>(s.seat_no||'-')+'번');
       const ins=lines(g.sessions,s=>{const t=histMs(s.checkin_at);return t?hhmm(t):'-';});
       const outs=lines(g.sessions,s=>{const t=histMs(s.checkout_at);return t?hhmm(t):'<span class="prog">재실중</span>';});
-      const outSecs=lines(g.sessions,s=>fmtHM(s.out_seconds||0));
+      const outSecs=lines(g.sessions,s=>(s.out_seconds||0)>0?'<span class="outval">'+fmtHM(s.out_seconds)+'</span>':'-');
       const studySum=groupStudySum(g);
       const totalTxt=(studySum!=null?fmtHM(studySum):'-')+(anyProgress?' <span class="prog">(재실중)</span>':'')+
         (g.sessions.length>1?'<div class="cnt">'+g.sessions.length+'건 합계</div>':'');
