@@ -722,6 +722,7 @@ const adminPin=()=>{try{return sessionStorage.getItem('admpin')||'';}catch(e){re
    ===================================================================== */
 let SEATS=[];              // 정규화된 좌석 배열
 let TIMERS=[];              // 공개 타이머 목록(TV 오른쪽 표시, 동시에 여러 개) — 각 endsAt은 항상 epoch ms
+const notifiedExpired=new Set();   // 이미 "끝났어요" 토스트를 띄운 타이머 id (나란히 보기 화면에서만 사용)
 const toMs=v=>v==null?null:(typeof v==='number'?v:Date.parse(v));
 let mode='in',input='';
 let hlNo=null,hlT=null;
@@ -935,7 +936,7 @@ async function refreshAdmin(){
     }).join(''):'<div class="none">아직 기록이 없어요</div>';
   }catch(e){console.error(e);}
 }
-function tick(){if(SEATS.some(s=>s.status==='out'))render();if(TIMERS.length)renderTimers();}
+function tick(){if(SEATS.some(s=>s.status==='out'))render();if(TIMERS.length){renderTimers();checkTimerExpiry();}}
 
 /* ===== 학습시간 기록 탭 ===== */
 const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
@@ -1137,6 +1138,33 @@ async function stopTimer(id){
   try{const r=await B.stopTimer(adminPin(),id);if(r&&r.ok){toast('타이머를 중지했어요');refreshTimers();}else toast('중지하지 못했어요');}
   catch(e){console.error(e);toast('오류가 났어요');}
 }
+// 타이머가 끝나면(나란히 보기 화면에서만) 토스트로 알려주고, 다른 탭을 보고 있었다면 탭 제목을 깜빡여서 알려줌
+const ORIG_TITLE=document.title;
+let titleFlashT=null;
+function startTitleFlash(){
+  if(titleFlashT)return;
+  let on=false;
+  titleFlashT=setInterval(()=>{document.title=on?ORIG_TITLE:'⏰ 타이머 종료!';on=!on;},1000);
+}
+function stopTitleFlash(){
+  if(!titleFlashT)return;
+  clearInterval(titleFlashT);titleFlashT=null;document.title=ORIG_TITLE;
+}
+function checkTimerExpiry(){
+  if(!isAdminView())return;   // 패드·TV 화면에는 토스트·탭 깜빡임을 띄우지 않음
+  TIMERS.forEach(t=>{
+    const remain=Math.round((t.endsAt-Date.now())/1000);
+    if(remain<=0&&!notifiedExpired.has(t.id)){
+      notifiedExpired.add(t.id);
+      toast((t.label?t.label+' ':'')+'타이머 끝났어요!');
+      if(!document.hasFocus())startTitleFlash();   // 이 탭을 보고 있지 않을 때만 깜빡임 시작
+    }
+  });
+  const liveIds=new Set(TIMERS.map(t=>t.id));
+  notifiedExpired.forEach(id=>{if(!liveIds.has(id))notifiedExpired.delete(id);});   // 중지된 타이머는 목록에서 정리
+}
+window.addEventListener('focus',stopTitleFlash);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)stopTitleFlash();});
 
 /* =====================================================================
    명단 업로드 (CSV / 엑셀)
