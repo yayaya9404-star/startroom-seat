@@ -223,6 +223,14 @@ body.r-tv .tvrank-stack, body.r-admin.v-tv .tvrank-stack{display:flex}
 .row.log{font-size:12.5px;color:var(--mute)}
 .none{color:#9aa4b3;font-size:13px;padding:4px 0}
 .note{font-size:12px;color:var(--mute);line-height:1.6}
+.timerstatus{font-size:12px;font-weight:600;color:var(--primary)}
+.timerpresets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.timerpresets button{flex:1 1 auto;padding:7px 8px;font-size:12.5px}
+.timercustom{display:flex;gap:6px}
+.timercustom input{width:0;flex:1 1 auto;padding:7px 8px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px}
+#timerLabel{padding:7px 8px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px}
+.tvtimer .tvtimernum{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--primary);text-align:center;padding:4px 0 2px}
+.tvtimer.done .tvtimernum{color:var(--danger);font-size:22px}
 .roster-info{font-size:14px;margin-bottom:10px}
 .roster-info b{font-size:20px}
 .upl{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -300,6 +308,7 @@ body.r-tv .tvrank-stack, body.r-admin.v-tv .tvrank-stack{display:flex}
     </div>
   </div>
   <div class="tvrank-stack">
+    <div id="tvTimerCard"></div>
     <div id="tvRankAtt"></div>
     <div id="tvRankTime"></div>
   </div>
@@ -312,6 +321,23 @@ body.r-tv .tvrank-stack, body.r-admin.v-tv .tvrank-stack{display:flex}
         <div class="stat o"><b id="sOut">0</b><span>외출</span></div>
         <div class="stat"><b id="sFree">0</b><span>빈자리</span></div>
       </div>
+    </div>
+    <div class="adm">
+      <h4>타이머 <span class="timerstatus" id="timerStatus">꺼짐</span></h4>
+      <div class="timerpresets" id="timerPresets">
+        <button class="ghost" data-min="5">5분</button>
+        <button class="ghost" data-min="10">10분</button>
+        <button class="ghost" data-min="15">15분</button>
+        <button class="ghost" data-min="20">20분</button>
+        <button class="ghost" data-min="30">30분</button>
+      </div>
+      <div class="timercustom">
+        <input type="number" id="timerMin" min="1" max="180" placeholder="직접 입력(분)">
+        <button class="ghost primary" id="timerStart">시작</button>
+      </div>
+      <input type="text" id="timerLabel" placeholder="문구(선택) · 예: 시험 시간" style="width:100%;margin-top:6px">
+      <button class="ghost danger" id="timerStop" style="display:none;margin-top:6px;width:100%">타이머 중지</button>
+      <div class="note" style="margin-top:6px">TV 화면 오른쪽에 큰 숫자로 표시돼요. 시험 시간 재거나, "O분 후 시험 보자"처럼 미리 경고할 때 써보세요.</div>
     </div>
     <div class="adm"><h4>외출 중</h4><div id="outList"></div></div>
     <div class="adm"><h4>최근 기록</h4><div id="logList"></div></div>
@@ -445,8 +471,9 @@ const LocalBackend=(()=>{
   const KEY='studyroom-local-v1';
   const uid=()=>'s'+Math.random().toString(36).slice(2,10);
   function fresh(){return{students:DEMO_STUDENTS.map(([name,grade_class,last4])=>({id:uid(),name,grade_class,last4})),
-    seats:SEAT_NOS.map(no=>({seat_no:no,kind:kindOf(no),student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null})),log:[]};}
-  function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.seats)return d;}catch(e){}const d=fresh();save(d);return d;}
+    seats:SEAT_NOS.map(no=>({seat_no:no,kind:kindOf(no),student_id:null,student_name:null,grade_class:null,status:'empty',out_at:null})),log:[],
+    timer:{label:null,endsAt:null,durationSec:null}};}
+  function load(){try{const d=JSON.parse(localStorage.getItem(KEY));if(d&&d.seats){d.timer=d.timer||{label:null,endsAt:null,durationSec:null};return d;}}catch(e){}const d=fresh();save(d);return d;}
   function save(d){try{localStorage.setItem(KEY,JSON.stringify(d));}catch(e){}}
   function addLog(d,o){d._seq=(d._seq||0)+1;d.log.unshift(Object.assign({id:d._seq,at:Date.now()},o));d.log.length=Math.min(d.log.length,200);}
   const seatOf=(d,id)=>d.seats.find(s=>s.student_id===id);
@@ -634,7 +661,16 @@ const LocalBackend=(()=>{
       const occ=d.seats.filter(s=>s.status==='in');
       if(occ[0]){occ[0].status='out';occ[0].out_at=Date.now()-6*60*1000;}
       if(occ[1]){occ[1].status='out';occ[1].out_at=Date.now()-17*60*1000;}save(d);},
-    subscribe(cb){window.addEventListener('storage',e=>{if(e.key===KEY)cb();});}
+    // 타이머(TV 화면 오른쪽에 표시) — 시험시간 재기, "O분 후 시험 보자" 등
+    async timerState(){const d=load();return{label:d.timer.label,ends_at:d.timer.endsAt,duration_sec:d.timer.durationSec};},
+    async setTimer(pin,durationSec,label){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};
+      if(!durationSec||durationSec<=0)return{ok:false,code:'bad_duration'};
+      const d=load();d.timer={label:label||null,endsAt:Date.now()+durationSec*1000,durationSec};save(d);
+      return{ok:true,code:'ok',ends_at:d.timer.endsAt};},
+    async clearTimer(pin){if(pin!==DEMO_PIN)return{ok:false,code:'bad_pin'};const d=load();
+      d.timer={label:null,endsAt:null,durationSec:null};save(d);return{ok:true,code:'ok'};},
+    subscribe(cb){window.addEventListener('storage',e=>{if(e.key===KEY)cb();});},
+    subscribeTimer(cb){window.addEventListener('storage',e=>{if(e.key===KEY)cb();});}
   };
 })();
 
@@ -663,7 +699,13 @@ const RemoteBackend=(()=>{
     students:pin=>rpc('study_admin_students',{p_pin:pin}),
     deleteStudents:(pin,ids)=>rpc('study_admin_delete_students',{p_pin:pin,p_ids:ids}),
     resetAll:pin=>rpc('study_admin_reset',{p_pin:pin}),
-    subscribe(cb){sb.channel('study_seats_live').on('postgres_changes',{event:'*',schema:'public',table:'study_seats'},cb).subscribe();}
+    // 타이머(TV 화면 오른쪽에 표시) — 시험시간 재기, "O분 후 시험 보자" 등
+    async timerState(){const{data,error}=await sb.from('study_timer').select('*').eq('id',1).maybeSingle();if(error)throw error;
+      return data?{label:data.label,ends_at:data.ends_at,duration_sec:data.duration_sec}:{label:null,ends_at:null,duration_sec:null};},
+    setTimer:(pin,durationSec,label)=>rpc('study_admin_set_timer',{p_pin:pin,p_duration_sec:durationSec,p_label:label||null}),
+    clearTimer:pin=>rpc('study_admin_clear_timer',{p_pin:pin}),
+    subscribe(cb){sb.channel('study_seats_live').on('postgres_changes',{event:'*',schema:'public',table:'study_seats'},cb).subscribe();},
+    subscribeTimer(cb){sb.channel('study_timer_live').on('postgres_changes',{event:'*',schema:'public',table:'study_timer'},cb).subscribe();}
   };
 })();
 const B=REMOTE?RemoteBackend:LocalBackend;
@@ -674,6 +716,8 @@ const adminPin=()=>{try{return sessionStorage.getItem('admpin')||'';}catch(e){re
    화면 상태
    ===================================================================== */
 let SEATS=[];              // 정규화된 좌석 배열
+let TIMER={label:null,endsAt:null,durationSec:null};   // 공개 타이머(TV 오른쪽 표시) — endsAt은 항상 epoch ms(또는 null)로 통일
+const toMs=v=>v==null?null:(typeof v==='number'?v:Date.parse(v));
 let mode='in',input='';
 let hlNo=null,hlT=null;
 let moveFrom=null;         // 관리자: 지금 이동시키려는 학생의 원래 자리번호 (null이면 이동중 아님)
@@ -886,7 +930,7 @@ async function refreshAdmin(){
     }).join(''):'<div class="none">아직 기록이 없어요</div>';
   }catch(e){console.error(e);}
 }
-function tick(){if(SEATS.some(s=>s.status==='out'))render();}
+function tick(){if(SEATS.some(s=>s.status==='out'))render();if(TIMER.endsAt)renderTimer();}
 
 /* ===== 학습시간 기록 탭 ===== */
 const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
@@ -1043,6 +1087,41 @@ async function refreshTvRanking(){
 }
 
 /* =====================================================================
+   공개 타이머 — 나란히 보기(관리자) 화면에서 시작하면 TV 화면 오른쪽에 큰 숫자로 표시
+   (시험 시간 재기, "O분 후 시험 보자" 등 용도)
+   ===================================================================== */
+function renderTimerCard(){
+  const el=$('#tvTimerCard');if(!el)return;
+  if(!TIMER.endsAt){el.innerHTML='';return;}
+  const remain=Math.round((TIMER.endsAt-Date.now())/1000);
+  const title=TIMER.label?esc(TIMER.label):'⏰ 타이머';
+  el.innerHTML=remain>0
+    ?'<div class="tvrankcard tvtimer"><h6>'+title+'</h6><div class="tvtimernum">'+fmt(remain)+'</div></div>'
+    :'<div class="tvrankcard tvtimer done"><h6>'+title+'</h6><div class="tvtimernum">시간 종료!</div></div>';
+}
+function renderTimerStatus(){
+  const el=$('#timerStatus'),stop=$('#timerStop');if(!el)return;
+  if(!TIMER.endsAt){el.textContent='꺼짐';if(stop)stop.style.display='none';return;}
+  const remain=Math.round((TIMER.endsAt-Date.now())/1000);
+  el.textContent=(TIMER.label?TIMER.label+' · ':'')+(remain>0?fmt(remain)+' 남음':'시간 종료');
+  if(stop)stop.style.display='';
+}
+function renderTimer(){renderTimerCard();renderTimerStatus();}
+async function refreshTimer(){
+  try{const r=await B.timerState();TIMER={label:(r&&r.label)||null,endsAt:toMs(r&&r.ends_at),durationSec:(r&&r.duration_sec)||null};renderTimer();}
+  catch(e){console.error(e);}
+}
+async function startTimer(min){
+  if(!min||min<=0)return toast('분을 입력해주세요');
+  const label=$('#timerLabel').value.trim();
+  try{
+    const r=await B.setTimer(adminPin(),Math.round(min*60),label||null);
+    if(r&&r.ok){toast(min+'분 타이머를 시작했어요');refreshTimer();}
+    else toast('타이머 시작에 실패했어요 ('+((r&&r.code)||'오류')+')');
+  }catch(e){console.error(e);toast('오류가 났어요');}
+}
+
+/* =====================================================================
    명단 업로드 (CSV / 엑셀)
    ===================================================================== */
 let pendingRows=null;
@@ -1190,6 +1269,14 @@ $('#histTableWrap').addEventListener('click',async e=>{
     else{toast('삭제하지 못했어요');btn.disabled=false;}
   }catch(err){console.error(err);toast('오류가 났어요');btn.disabled=false;}
 });
+$('#timerPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;startTimer(Number(b.dataset.min));};
+$('#timerStart').onclick=()=>startTimer(Number($('#timerMin').value));
+$('#timerMin').addEventListener('keydown',e=>{if(e.key==='Enter')startTimer(Number($('#timerMin').value));});
+$('#timerStop').onclick=async()=>{
+  if(!confirm('타이머를 중지할까요?'))return;
+  try{const r=await B.clearTimer(adminPin());if(r&&r.ok){toast('타이머를 중지했어요');refreshTimer();}else toast('중지하지 못했어요');}
+  catch(e){console.error(e);toast('오류가 났어요');}
+};
 $('#chooseCancel').onclick=()=>$('#chooser').classList.remove('show');
 $('#seatMenuCancel').onclick=()=>$('#seatMenu').classList.remove('show');
 $('#gateOk').onclick=tryUnlock;
@@ -1255,12 +1342,15 @@ async function boot(){
   $('#histDateFrom').value=todayStr();$('#histDateTo').value=todayStr();
   $('#rankMonth').value=todayStr().slice(0,7);
   B.subscribe(()=>refresh());
+  B.subscribeTimer(()=>refreshTimer());
   await refresh();
   refreshTvRanking();
+  refreshTimer();
   route();
   setInterval(tick,1000);
   setInterval(refresh,REMOTE?20000:60000);   // 실시간 신호를 놓쳐도 주기적으로 맞춤
   setInterval(refreshTvRanking,120000);      // TV 화면 랭킹은 자주 안 바뀌니 2분마다만
+  setInterval(refreshTimer,REMOTE?20000:60000);   // 타이머도 실시간 신호를 놓쳤을 때를 대비해 주기적으로 맞춤
 }
 /* 확대·축소 막기: 핀치(터치 2개), iOS 제스처, Ctrl+휠, Ctrl +/-/0 */
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,e=>e.preventDefault()));
