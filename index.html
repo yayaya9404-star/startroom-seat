@@ -143,12 +143,6 @@ body.r-tv .tvrank-stack, body.r-admin.v-tv .tvrank-stack{display:flex}
 
 /* ---------- PAD ---------- */
 .pad{background:var(--card);border-radius:22px;border:8px solid #2b3340;padding:16px;box-shadow:0 8px 28px rgba(20,30,50,.15);display:grid;grid-template-columns:1fr;gap:16px}
-.modes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
-.modes button{border:2px solid var(--line);background:#fff;border-radius:14px;padding:12px 0;font-size:17px;font-weight:700;cursor:pointer;color:var(--mute);font-family:inherit}
-.modes button.on[data-m=in]{background:var(--in);border-color:var(--in);color:#fff}
-.modes button.on[data-m=out]{background:var(--out);border-color:var(--out);color:#fff}
-.modes button.on[data-m=back]{background:var(--primary);border-color:var(--primary);color:#fff}
-.modes button.on[data-m=leave]{background:#4b5565;border-color:#4b5565;color:#fff}
 .hint{font-size:13px;color:var(--mute);text-align:center;margin-bottom:8px;min-height:18px}
 .display{display:flex;justify-content:center;gap:12px;margin:6px 0 12px}
 .display span{width:52px;height:64px;border-radius:12px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:30px;background:#f7f9fc}
@@ -160,9 +154,16 @@ body.r-tv .tvrank-stack, body.r-admin.v-tv .tvrank-stack{display:flex}
 #result.err{background:#ffe8e8} #result.err b{color:var(--danger)}
 #result .seatbig{font-size:38px;font-weight:800;color:#0c7a4e;line-height:1.1}
 .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.keys.hide{display:none}
 .keys button{height:62px;border-radius:14px;border:1px solid var(--line);background:#fafbfd;font-size:26px;cursor:pointer;font-family:inherit}
 .keys button:active{background:#e6ecf7}
 .keys button.fn{font-size:16px;color:var(--mute)}
+.choices{display:none;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+.choices.show{display:grid}
+.choicebtn{border:2px solid var(--line);background:#fff;border-radius:14px;padding:18px 0;font-size:19px;font-weight:700;cursor:pointer;color:var(--mute);font-family:inherit}
+.choicebtn.out{background:var(--out);border-color:var(--out);color:#fff}
+.choicebtn.back{background:var(--primary);border-color:var(--primary);color:#fff}
+.choicebtn.leave{background:#4b5565;border-color:#4b5565;color:#fff}
 .padR{margin-top:4px}
 .padR .cap{font-size:14px;color:var(--ink);text-align:center;margin-bottom:8px;font-weight:600}
 .demo{margin-top:10px;font-size:11px;color:#9aa4b3;text-align:center}
@@ -225,9 +226,12 @@ body.r-tv .tvrank-stack, body.r-admin.v-tv .tvrank-stack{display:flex}
 .note{font-size:12px;color:var(--mute);line-height:1.6}
 .timerpresets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
 .timerpresets button{flex:1 1 auto;padding:7px 8px;font-size:12.5px}
-.timercustom{display:flex;gap:6px}
+.timerpresets button.sel{background:var(--primary);border-color:var(--primary);color:#fff}
+.timercustom{display:flex;gap:6px;margin-bottom:6px}
 .timercustom input{width:0;flex:1 1 auto;padding:7px 8px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px}
-#timerLabel{padding:7px 8px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px}
+.timerlabelrow{display:flex;gap:6px}
+#timerLabel{width:0;flex:1 1 auto;padding:7px 8px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13px}
+.timerlabelrow #timerStart{flex-shrink:0}
 .timerlist{margin-top:4px}
 .timerrow span{font-variant-numeric:tabular-nums}
 .timerrow button{padding:4px 10px;font-size:11.5px;flex-shrink:0;margin-left:8px}
@@ -282,19 +286,14 @@ body.r-tv .tvrank-stack, body.r-admin.v-tv .tvrank-stack{display:flex}
     <div class="label">패드 화면 (학생 입력용)</div>
     <div class="pad">
       <div class="padL">
-        <div class="modes" id="modes">
-          <button data-m="in" class="on">입실</button>
-          <button data-m="leave">퇴실</button>
-          <button data-m="out">외출</button>
-          <button data-m="back">복귀</button>
-        </div>
-        <div class="hint" id="hint"></div>
+        <div class="hint" id="hint">뒷번호 4자리를 입력하세요</div>
         <div class="display" id="display"></div>
         <div id="result">뒷번호 4자리를 입력하세요</div>
+        <div class="choices" id="choiceButtons"></div>
         <div class="keys" id="keys"></div>
         <div class="demo" id="demoHint"></div>
       </div>
-      <div class="padR"><div class="cap" id="padMapCap"></div><div class="map" id="padMap"></div></div>
+      <div class="padR"><div class="cap" id="padMapCap">입실하면 내 자리가 여기에 표시돼요</div><div class="map" id="padMap"></div></div>
     </div>
   </div>
 
@@ -337,9 +336,11 @@ body.r-tv .tvrank-stack, body.r-admin.v-tv .tvrank-stack{display:flex}
       </div>
       <div class="timercustom">
         <input type="number" id="timerMin" min="1" max="180" placeholder="직접 입력(분)">
+      </div>
+      <div class="timerlabelrow">
+        <input type="text" id="timerLabel" placeholder="문구(선택) · 예: 1조 시험">
         <button class="ghost primary" id="timerStart">시작</button>
       </div>
-      <input type="text" id="timerLabel" placeholder="문구(선택) · 예: 1조 시험" style="width:100%;margin-top:6px">
       <div class="timerlist" id="timerList"></div>
       <div class="note" style="margin-top:6px">TV 화면 오른쪽에 동시에 최대 6개까지 표시돼요. 시험 시간 재거나, "O분 후 시험 보자"처럼 미리 경고할 때 써보세요.</div>
     </div>
@@ -724,7 +725,9 @@ let SEATS=[];              // 정규화된 좌석 배열
 let TIMERS=[];              // 공개 타이머 목록(TV 오른쪽 표시, 동시에 여러 개) — 각 endsAt은 항상 epoch ms
 const notifiedExpired=new Set();   // 이미 "끝났어요" 토스트를 띄운 타이머 id (나란히 보기 화면에서만 사용)
 const toMs=v=>v==null?null:(typeof v==='number'?v:Date.parse(v));
-let mode='in',input='';
+let input='';
+let pending=null;      // 선택 버튼(외출/퇴실/복귀)이 떠 있는 동안의 대상 학생 정보 (null이면 선택 대기 아님)
+let choiceT=null;
 let hlNo=null,hlT=null;
 let moveFrom=null;         // 관리자: 지금 이동시키려는 학생의 원래 자리번호 (null이면 이동중 아님)
 function hl(n){hlNo=n;clearTimeout(hlT);hlT=setTimeout(()=>{hlNo=null;render();},10000);}
@@ -770,44 +773,66 @@ function report(m,name,r){
   if(m==='out'){hl(seat);return show('warn',name+' 외출 시작','자리는 '+seat+'번 그대로 유지돼요');}
   if(m==='back'){hl(seat);return show('ok',name+' 복귀 완료','외출 시간 '+fmt(r.secs||0)+' · '+seat+'번 자리');}
 }
-async function act(id,name,grade_class,last4){
-  const m=mode;
+async function act(action,id,name,grade_class,last4){
   try{
-    const r=await B[ACT[m]](id);
-    report(m,name,r);
-    if(m==='in'&&r&&r.ok)syncStart(id,name,grade_class,last4);
+    const r=await B[ACT[action]](id);
+    report(action,name,r);
+    if(action==='in'&&r&&r.ok)syncStart(id,name,grade_class,last4);
   }
   catch(e){console.error(e);show('err','연결 오류','잠시 후 다시 시도해주세요');}
   refresh();
+}
+/* 학생이 뒷번호를 입력한 뒤, 지금 상태(미입실/입실/외출)에 따라 자동으로 처리하거나
+   꼭 필요한 선택지만 보여줍니다. 모드 탭을 먼저 고르게 하지 않기 위한 핵심 로직. */
+function currentStatus(id){
+  const seat=SEATS.find(s=>s.sid===id);
+  if(!seat||seat.status==='empty')return 'idle';
+  return seat.status; // 'in' 또는 'out'
+}
+function handleLookup(cand,code){
+  const st=currentStatus(cand.id);
+  if(st==='idle'){act('in',cand.id,cand.name,cand.grade_class,code);return;}
+  if(st==='in'){showChoices(cand,code,[{label:'외출',action:'out',cls:'out'},{label:'퇴실',action:'leave',cls:'leave'}]);return;}
+  if(st==='out'){showChoices(cand,code,[{label:'복귀',action:'back',cls:'back'},{label:'퇴실',action:'leave',cls:'leave'}]);return;}
+}
+function showChoices(cand,code,options){
+  pending=cand;
+  clearTimeout(resT);
+  const r=$('#result');r.className='warn';r.innerHTML='<b>'+esc(cand.name)+' 학생</b>아래에서 선택해주세요';
+  const box=$('#choiceButtons');box.innerHTML='';
+  options.forEach(o=>{
+    const b=document.createElement('button');b.className='choicebtn '+o.cls;b.textContent=o.label;
+    b.onclick=()=>{hideChoices();act(o.action,cand.id,cand.name,cand.grade_class,code);};
+    box.appendChild(b);
+  });
+  box.classList.add('show');
+  $('#keys').classList.add('hide');
+  clearTimeout(choiceT);choiceT=setTimeout(hideChoices,8000);
+}
+function hideChoices(){
+  pending=null;
+  clearTimeout(choiceT);
+  $('#choiceButtons').classList.remove('show');$('#choiceButtons').innerHTML='';
+  $('#keys').classList.remove('hide');
 }
 async function submit(){
   const code=input;input='';renderDisplay();
   let cand;
   try{cand=await B.find(code);}catch(e){console.error(e);return show('err','연결 오류','잠시 후 다시 시도해주세요');}
   if(!cand.length)return show('err','등록되지 않은 번호예요','다시 입력해주세요');
-  if(cand.length===1)return act(cand[0].id,cand[0].name,cand[0].grade_class,code);
+  if(cand.length===1)return handleLookup(cand[0],code);
   const box=$('#chooseList');box.innerHTML='';
   cand.forEach(s=>{const b=document.createElement('button');b.className='c';b.innerHTML=esc(s.name)+'<small>'+esc(s.grade_class||'')+'</small>';
-    b.onclick=()=>{$('#chooser').classList.remove('show');act(s.id,s.name,s.grade_class,code);};box.appendChild(b);});
+    b.onclick=()=>{$('#chooser').classList.remove('show');handleLookup(s,code);};box.appendChild(b);});
   $('#chooser').classList.add('show');
 }
 function press(k){
+  if(pending)return;
   if(k==='C')input='';
   else if(k==='B')input=input.slice(0,-1);
   else if(input.length<4)input+=k;
   renderDisplay();
   if(input.length===4)setTimeout(submit,180);
-}
-async function seatTap(seat){
-  if(!seat.sid)return;
-  if(mode==='leave'&&isAdminView()&&seat.status!=='empty'){   // 관리자: 퇴실 누락 학생 자리 선택으로 빼기
-    if(!confirm(seat.name+' 학생(' +seat.no+'번 자리)을 퇴실 처리할까요?'))return;
-    try{const r=await B.adminRelease(adminPin(),seat.no);
-      if(r&&r.ok)toast(seat.name+' 퇴실 처리했어요 ('+seat.no+'번 비움)');else toast('퇴실 처리에 실패했어요 ('+((r&&r.code)||'오류')+')');
-    }catch(e){console.error(e);toast('오류가 났어요');}
-    return refresh();
-  }
-  if((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out'))act(seat.sid,seat.name);
 }
 
 /* ===== 관리자: 배치도에서 자리를 눌러 이동·외출·복귀·퇴실 관리 (관리자 화면에서만 보임) ===== */
@@ -861,10 +886,6 @@ function show(type,title,sub){
 }
 
 /* ===== 렌더 ===== */
-const ADMIN_LEAVE_HINT='퇴실: 뒷번호를 입력하거나, [관리자] 배치도에서 학생 자리를 눌러 퇴실 처리할 수 있어요';
-const HINTS={in:'입실: 뒷번호 4자리를 입력하면 자리가 자동 배정돼요',leave:'퇴실: 뒷번호 4자리를 입력하면 퇴실 처리돼요',
-  out:'외출: 뒷번호를 입력하거나 배치도에서 내 자리를 눌러주세요',back:'복귀: 뒷번호를 입력하거나 배치도에서 외출 중인 내 자리를 눌러주세요'};
-const CAP={in:'입실하면 내 자리가 여기에 깜빡여요',leave:'퇴실하면 자리가 비워져요',out:'외출할 내 자리를 눌러도 돼요',back:'복귀할 내 자리를 눌러도 돼요'};
 function renderDisplay(){
   const d=$('#display');d.innerHTML='';
   for(let i=0;i<4;i++){const s=document.createElement('span');if(i<input.length){s.className='f';s.textContent='●';}d.appendChild(s);}
@@ -883,7 +904,6 @@ function buildMap(el,clickable,adminMenu){
     d.className=cls;d.innerHTML=inner;
     d.style.gridColumn=seat.col;d.style.gridRow=seat.row;
     if(clickable&&seat.no===hlNo)d.classList.add('hl');
-    if(clickable&&((mode==='out'&&seat.status==='in')||(mode==='back'&&seat.status==='out')||(mode==='leave'&&isAdminView()&&seat.sid&&seat.status!=='empty'))){d.classList.add('tap');d.onclick=()=>seatTap(seat);}
     if(adminMenu&&seat.kind==='study'){
       if(moveFrom!=null){
         if(seat.no===moveFrom)d.classList.add('moving');
@@ -912,8 +932,6 @@ function render(){
   buildMap($('#tvMap'),false,isAdminView());
   buildMap($('#padMap'),true);
   updateAdminHint();
-  $('#padMapCap').textContent=(mode==='leave'&&isAdminView())?'퇴실 처리할 학생의 자리를 눌러주세요 (관리자)':CAP[mode];
-  $('#hint').textContent=(mode==='leave'&&isAdminView())?ADMIN_LEAVE_HINT:HINTS[mode];
   const as=studySeats();
   const nIn=as.filter(s=>s.status==='in').length,nOut=as.filter(s=>s.status==='out').length;
   $('#sIn').textContent=nIn;$('#sOut').textContent=nOut;$('#sFree').textContent=as.length-nIn-nOut;
@@ -1286,8 +1304,6 @@ const keys=$('#keys');
 ['1','2','3','4','5','6','7','8','9','C','0','B'].forEach(k=>{
   const b=document.createElement('button');b.textContent=k==='C'?'지우기':k==='B'?'⌫':k;if(k==='C')b.className='fn';
   b.onclick=()=>press(k);keys.appendChild(b);});
-$('#modes').onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=b.dataset.m;input='';
-  document.querySelectorAll('#modes button').forEach(x=>x.classList.toggle('on',x===b));renderDisplay();render();};
 $('#viewSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;
   document.querySelectorAll('#viewSeg button').forEach(x=>x.classList.toggle('on',x===b));document.body.className='r-admin v-'+b.dataset.v;
   moveFrom=null;$('#seatMenu').classList.remove('show');render();
@@ -1314,9 +1330,18 @@ $('#histTableWrap').addEventListener('click',async e=>{
     else{toast('삭제하지 못했어요');btn.disabled=false;}
   }catch(err){console.error(err);toast('오류가 났어요');btn.disabled=false;}
 });
-$('#timerPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;startTimer(Number(b.dataset.min));};
+/* 시간 버튼은 더 이상 즉시 시작하지 않고, 분 입력칸에 값만 채우고 선택 표시만 해요.
+   실제 시작은 (제목 옆으로 옮긴) "시작" 버튼을 눌러야만 일어나요. */
+$('#timerPresets').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  $('#timerMin').value=b.dataset.min;
+  document.querySelectorAll('#timerPresets button').forEach(x=>x.classList.toggle('sel',x===b));
+};
+$('#timerMin').addEventListener('input',()=>{
+  document.querySelectorAll('#timerPresets button').forEach(x=>x.classList.toggle('sel',x.dataset.min===$('#timerMin').value));
+});
 $('#timerStart').onclick=()=>startTimer(Number($('#timerMin').value));
 $('#timerMin').addEventListener('keydown',e=>{if(e.key==='Enter')startTimer(Number($('#timerMin').value));});
+$('#timerLabel').addEventListener('keydown',e=>{if(e.key==='Enter')startTimer(Number($('#timerMin').value));});
 $('#timerList').addEventListener('click',e=>{
   const b=e.target.closest('.timerStopBtn');if(!b)return;
   if(!confirm('이 타이머를 중지할까요?'))return;
